@@ -1,0 +1,85 @@
+import { defineStore } from 'pinia'
+import { touchNow, simNow } from '../composables/useNow'
+
+const KEY = 'settlingSessions'
+const EXT_KEY = 'napExtensions'
+const DISMISS_KEY = 'greetingDismissed'
+const MILESTONE_KEY = 'milestoneDismissed'
+const ADVICE_KEY = 'adviceDismissed'
+
+function load(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || {} } catch { return {} }
+}
+
+// Эфемерная сессия «укладывания» на ребёнка: когда начата и где укладывают.
+// Живёт до момента «Уснул» или отмены.
+export const useSettlingStore = defineStore('settling', {
+  state: () => ({
+    sessions: load(KEY),
+    extensions: load(EXT_KEY),
+    greetingDismissed: load(DISMISS_KEY),
+    milestoneDismissed: load(MILESTONE_KEY),
+    adviceDismissed: load(ADVICE_KEY)
+  }),
+  actions: {
+    get(childId) {
+      return this.sessions[childId] || null
+    },
+    getExtension(childId) {
+      return this.extensions[childId] || null
+    },
+    startExtension(childId) {
+      this.extensions[childId] = { startedAt: simNow() }
+      localStorage.setItem(EXT_KEY, JSON.stringify(this.extensions))
+      touchNow()
+    },
+    clearExtension(childId) {
+      if (this.extensions[childId]) {
+        delete this.extensions[childId]
+        localStorage.setItem(EXT_KEY, JSON.stringify(this.extensions))
+        touchNow()
+      }
+    },
+    start(childId) {
+      this.sessions[childId] = { startedAt: simNow(), location: null }
+      this.persist()
+    },
+    setLocation(childId, location) {
+      const s = this.sessions[childId]
+      if (!s) return
+      s.location = location
+      this.persist()
+    },
+    clear(childId) {
+      if (this.sessions[childId]) {
+        delete this.sessions[childId]
+        this.persist()
+        touchNow()
+      }
+    },
+    dismissGreeting(childId) {
+      this.greetingDismissed[childId] = new Date(simNow()).toDateString()
+      localStorage.setItem(DISMISS_KEY, JSON.stringify(this.greetingDismissed))
+    },
+    isGreetingDismissed(childId) {
+      return this.greetingDismissed[childId] === new Date(simNow()).toDateString()
+    },
+    dismissMilestone(childId) {
+      this.milestoneDismissed[childId] = new Date(simNow()).toDateString()
+      localStorage.setItem(MILESTONE_KEY, JSON.stringify(this.milestoneDismissed))
+    },
+    isMilestoneDismissed(childId) {
+      return this.milestoneDismissed[childId] === new Date(simNow()).toDateString()
+    },
+    dismissAdvice(childId) {
+      this.adviceDismissed[childId] = new Date(simNow()).toDateString()
+      localStorage.setItem(ADVICE_KEY, JSON.stringify(this.adviceDismissed))
+    },
+    isAdviceDismissed(childId) {
+      return this.adviceDismissed[childId] === new Date(simNow()).toDateString()
+    },
+    persist() {
+      localStorage.setItem(KEY, JSON.stringify(this.sessions))
+    }
+  }
+})
