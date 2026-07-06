@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
@@ -16,6 +16,12 @@ const children = useChildrenStore()
 
 const childId = computed(() => children.activeChild?.id)
 const phase = computed(() => props.guidance.phase)
+
+// Раскрытие подробностей идеи «чем заняться» (по аналогии с быстрыми темами)
+const openActivity = ref(null)
+function toggleActivity(i) {
+  openActivity.value = openActivity.value === i ? null : i
+}
 
 const tone = computed(() => {
   if (phase.value === 'time-to-sleep') return 'urgent'
@@ -37,9 +43,6 @@ const icon = computed(() => ({
 function startSettling() {
   settling.start(childId.value)
 }
-function cancelSettling() {
-  settling.clear(childId.value)
-}
 function chooseLocation(loc) {
   settling.setLocation(childId.value, loc)
 }
@@ -51,9 +54,6 @@ async function fellAsleep() {
   settling.clear(childId.value)
   settling.clearExtension(childId.value)
   emit('slept')
-}
-function startExtension() {
-  settling.startExtension(childId.value)
 }
 function stopExtension() {
   settling.clearExtension(childId.value)
@@ -69,15 +69,23 @@ function stopExtension() {
 
     <p v-for="(line, i) in guidance.lines" :key="i" class="flow-line">{{ line }}</p>
 
-    <!-- Активное время: чем заняться -->
-    <ul v-if="guidance.activities.length" class="ideas">
-      <li v-for="(idea, i) in guidance.activities" :key="i">{{ idea }}</li>
-    </ul>
-
-    <!-- Малыш проснулся из короткого сна — предложить продлить -->
-    <button v-if="guidance.showExtendNap" class="btn block start-btn extend-btn" @click="startExtension">
-      🔁 Продлить сон
-    </button>
+    <!-- Активное время: чем заняться — кнопки с раскрытием подробностей -->
+    <div v-if="guidance.activities.length" class="ideas">
+      <div class="idea-tags">
+        <button
+          v-for="(idea, i) in guidance.activities"
+          :key="i"
+          class="idea-tag"
+          :class="{ active: openActivity === i }"
+          @click="toggleActivity(i)"
+        >{{ idea.title }}</button>
+      </div>
+      <Transition name="fade">
+        <div v-if="openActivity !== null" class="idea-text">
+          {{ guidance.activities[openActivity].text }}
+        </div>
+      </Transition>
+    </div>
 
     <!-- Чек-лист занятий на бодрствование (живот, утренние дела) -->
     <WakeChecklist
@@ -122,15 +130,17 @@ function stopExtension() {
         <ol class="steps">
           <li v-for="(step, i) in guidance.steps" :key="i">{{ step }}</li>
         </ol>
-        <button class="link-btn" @click="changeLocation">← Выбрать другое место</button>
-        <router-link
-          class="tip-link"
-          :to="{ path: '/advice', query: { tip: 'cant-fall-asleep' } }"
-        >Полный разбор: почему малыш не засыпает →</router-link>
       </template>
 
       <button class="btn block" @click="fellAsleep">Уснул(а)</button>
-      <button class="link-btn" @click="cancelSettling">Отменить укладывание</button>
+
+      <!-- Назад к выбору места (значок слева внизу) -->
+      <button
+        v-if="guidance.location"
+        class="back-btn"
+        @click="changeLocation"
+        aria-label="Назад к выбору места"
+      >←</button>
     </template>
   </div>
 </template>
@@ -156,13 +166,43 @@ function stopExtension() {
   margin: 0 0 8px;
 }
 
-.ideas, .remaining, .steps {
+.remaining, .steps {
   margin: 4px 0 12px;
   padding-left: 20px;
   font-size: 14px;
 }
 
-.ideas li, .remaining li, .steps li { margin-bottom: 5px; }
+.remaining li, .steps li { margin-bottom: 5px; }
+
+.ideas { margin: 4px 0 12px; }
+
+.idea-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.idea-tag {
+  padding: 7px 14px;
+  min-height: 36px;
+  border-radius: 999px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  color: var(--c-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.idea-tag.active {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+}
+
+.idea-text {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
 
 .remaining { color: var(--c-urgent); font-weight: 500; }
 
@@ -200,22 +240,23 @@ function stopExtension() {
 
 .loc-icon { font-size: 22px; }
 
-.link-btn {
-  display: block;
-  width: 100%;
-  text-align: center;
-  padding: 10px;
-  margin-top: 8px;
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-top: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
   color: var(--c-text-soft);
-  font-size: 13px;
+  font-size: 20px;
+  line-height: 1;
 }
 
-.tip-link {
-  display: block;
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--c-primary);
-  text-decoration: none;
+.back-btn:active {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
 }
 </style>

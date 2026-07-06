@@ -66,13 +66,49 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   const minuteOfDay = hour * 60 + dayjs(now).minute()
   const isNightNow = minuteOfDay >= NIGHT_START_MIN || hour < DAY_START_H
 
+  // Ночное пробуждение — только если идёт ночной сон (малыш уже уходил в ночь)
+  // и он проснулся до утреннего начала дня (DAY_START_H следующего утра).
+  // Вечернее бодрствование до отбоя и утренний подъём сюда не относятся.
+  let bedtimeStart = nightBedtimeStart(events, now)
+  // Сон сразу после вечернего купания (18–22) тоже считаем ночным отбоем,
+  // даже если он начался до 19:00 — тогда пробуждение из него ночное.
+  const from16h = now - 16 * 3600000
+  const eveningBath = events
+    .filter(e => e.type === 'bath' && e.startedAt >= from16h && e.startedAt <= now &&
+      dayjs(e.startedAt).hour() >= 18 && dayjs(e.startedAt).hour() < 22)
+    .sort((x, y) => y.startedAt - x.startedAt)[0]
+  if (eveningBath) {
+    const bathEnd = eveningBath.endedAt ?? eveningBath.startedAt
+    const afterBath = events
+      .filter(e => e.type === 'sleep' && e.startedAt >= bathEnd && e.startedAt <= now)
+      .sort((x, y) => x.startedAt - y.startedAt)[0]
+    if (afterBath) {
+      bedtimeStart = bedtimeStart == null
+        ? afterBath.startedAt
+        : Math.min(bedtimeStart, afterBath.startedAt)
+    }
+  }
+  const morningAfterBedtime = bedtimeStart != null
+    ? dayjs(bedtimeStart).add(dayjs(bedtimeStart).hour() >= DAY_START_H ? 1 : 0, 'day')
+        .startOf('day').add(DAY_START_H, 'hour').valueOf()
+    : null
+  const isNightWaking = !state.sleeping && bedtimeStart != null &&
+    state.lastWakeAt != null && state.lastWakeAt >= bedtimeStart &&
+    now < morningAfterBedtime
+
   // Последний завершённый дневной сон и его длительность
   const lastNap = lastNapToday(events, now)
   const lastNapMin = lastNap ? durationMin(lastNap) : null
-  // Малыш только что проснулся из короткого сна → можно предложить продлить сон
-  const justWokeShort = !state.sleeping && !isNightNow &&
-    lastNapMin != null && lastNapMin < 45 &&
-    state.awakeMin != null && state.awakeMin <= 20
+  const lastSleepMin = state.lastCompleted ? durationMin(state.lastCompleted) : null
+  const justWokeRecently = state.awakeMin != null && state.awakeMin <= 20
+
+  // Короткий дневной сон (<35 мин) → предложить продлить сон
+  const shortDayNap = !state.sleeping && !isNightWaking && !isNightNow &&
+    lastNapMin != null && lastNapMin < 35 && justWokeRecently
+  // Короткий ночной сон после купания (<30 мин) → тоже предложить продлить
+  const shortNightAfterBath = !state.sleeping && isNightWaking && hasBathToday &&
+    lastSleepMin != null && lastSleepMin < 30 && justWokeRecently
+  const justWokeShort = shortDayNap || shortNightAfterBath
 
   // ── Фаза ──
   let phase
@@ -80,7 +116,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   else if (state.lastWakeAt == null) phase = 'no-data'
   else if (extension && extension.startedAt) phase = 'nap-extension'
   else if (settling && settling.startedAt) phase = 'settling'
-  else if (isNightNow) phase = 'night-waking'
+  else if (isNightWaking) phase = 'night-waking'
   else if (wakeWindowLeft != null && wakeWindowLeft <= 10) phase = 'time-to-sleep'
   else if (wakeWindowLeft != null && wakeWindowLeft <= 30) phase = 'wind-down'
   else phase = 'active'
@@ -93,6 +129,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     nextIsNight,
     hasBathToday,
     isNight: isNightNow,
+    isNightWaking,
     wakeSince: state.lastWakeAt,
     headline: '',
     lines: [],
@@ -136,7 +173,6 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     }
   } else if (phase === 'night-waking') {
     // Подсказка зависит от времени и от того, сколько прошло после отбоя
-    const bedtimeStart = nightBedtimeStart(events, now)
     const hoursSinceBedtime = bedtimeStart != null ? (now - bedtimeStart) / 3600000 : null
     const algo = nightAlgorithm({ hour, hoursSinceBedtime })
     g.headline = algo.title

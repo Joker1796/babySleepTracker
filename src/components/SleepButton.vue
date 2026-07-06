@@ -1,16 +1,22 @@
 <script setup>
 import { computed } from 'vue'
 import { useEventsStore } from '../stores/events'
-import { useNow } from '../composables/useNow'
-import { formatDurationMin } from '../logic/age'
-import dayjs from 'dayjs'
+import { useChildrenStore } from '../stores/children'
 
 const events = useEventsStore()
-const now = useNow()
+const children = useChildrenStore()
 
 const sleeping = computed(() => events.currentSleep)
-const sleepingFor = computed(() =>
-  sleeping.value ? formatDurationMin((now.value - sleeping.value.startedAt) / 60000) : null
+
+// Слово на кнопке — с учётом пола ребёнка из профиля.
+// Если пол не выбран, показываем форму с обоими окончаниями.
+const female = computed(() => children.activeChild?.gender === 'female')
+const male = computed(() => children.activeChild?.gender === 'male')
+const wakeWord = computed(() =>
+  female.value ? 'Проснулась' : male.value ? 'Проснулся' : 'Проснулся(ась)'
+)
+const sleepWord = computed(() =>
+  female.value ? 'Уснула' : male.value ? 'Уснул' : 'Уснул(а)'
 )
 
 async function toggle() {
@@ -26,9 +32,7 @@ async function toggle() {
   <button class="sleep-btn" :class="{ sleeping }" @click="toggle">
     <span class="icon">{{ sleeping ? '☀️' : '😴' }}</span>
     <span class="text">
-      <span class="main">{{ sleeping ? 'Проснулся(ась)' : 'Уснул(а)' }}</span>
-      <span v-if="sleeping" class="sub">спит {{ sleepingFor }} · с {{ dayjs(sleeping.startedAt).format('HH:mm') }}</span>
-      <span v-else class="sub">отметить засыпание сейчас</span>
+      <span class="main">{{ sleeping ? wakeWord : sleepWord }}</span>
     </span>
   </button>
 </template>
@@ -69,10 +73,5 @@ async function toggle() {
 .main {
   font-size: 17px;
   font-weight: 700;
-}
-
-.sub {
-  font-size: 13px;
-  opacity: 0.85;
 }
 </style>

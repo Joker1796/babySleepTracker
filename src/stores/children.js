@@ -19,14 +19,15 @@ export const useChildrenStore = defineStore('children', {
       this.children = await db.children.toArray()
       this.loaded = true
     },
-    async add({ name, birthDate, color, feeding, aids }) {
+    async add({ name, birthDate, color, feeding, aids, gender }) {
       const child = {
         id: uid(),
         name,
         birthDate,
         color: color || CHILD_COLORS[this.children.length % CHILD_COLORS.length],
         feeding: feeding || 'breast',
-        aids: aids || []
+        aids: aids || [],
+        gender: gender || null
       }
       await db.children.put(child)
       this.children.push(child)

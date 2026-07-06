@@ -71,12 +71,20 @@ export const useSettlingStore = defineStore('settling', {
     isMilestoneDismissed(childId) {
       return this.milestoneDismissed[childId] === new Date(simNow()).toDateString()
     },
-    dismissAdvice(childId) {
-      this.adviceDismissed[childId] = new Date(simNow()).toDateString()
+    // Крестик скрывает конкретную профильную подсказку до конца дня.
+    // Модель: childId → { date, ids: [adviceId] }.
+    dismissAdvice(childId, adviceId) {
+      const today = new Date(simNow()).toDateString()
+      const entry = this.adviceDismissed[childId]
+      const ids = entry && typeof entry === 'object' && entry.date === today ? entry.ids : []
+      if (!ids.includes(adviceId)) ids.push(adviceId)
+      this.adviceDismissed[childId] = { date: today, ids }
       localStorage.setItem(ADVICE_KEY, JSON.stringify(this.adviceDismissed))
     },
-    isAdviceDismissed(childId) {
-      return this.adviceDismissed[childId] === new Date(simNow()).toDateString()
+    isAdviceDismissed(childId, adviceId) {
+      const entry = this.adviceDismissed[childId]
+      if (!entry || typeof entry !== 'object') return false
+      return entry.date === new Date(simNow()).toDateString() && entry.ids.includes(adviceId)
     },
     persist() {
       localStorage.setItem(KEY, JSON.stringify(this.sessions))

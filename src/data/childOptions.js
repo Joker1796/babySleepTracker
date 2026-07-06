@@ -1,6 +1,11 @@
 // Параметры профиля ребёнка: тип кормления и «помощники сна».
 // Используются в форме ребёнка и учитываются движком подсказок (advisorRules).
 
+export const GENDERS = [
+  { id: 'male', label: 'Мальчик', icon: '👦' },
+  { id: 'female', label: 'Девочка', icon: '👧' }
+]
+
 export const FEEDING_TYPES = [
   { id: 'breast', label: 'Грудное', short: 'ГВ', icon: '🤱' },
   { id: 'formula', label: 'Смесь', short: 'ИВ', icon: '🍼' },

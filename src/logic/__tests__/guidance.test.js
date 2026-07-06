@@ -10,6 +10,10 @@ function sleep(start, end) {
   return { id: start, type: 'sleep', startedAt: ts(start), endedAt: end ? ts(end) : null }
 }
 
+function bath(start, end) {
+  return { id: 'bath' + start, type: 'bath', startedAt: ts(start), endedAt: end ? ts(end) : null }
+}
+
 describe('фазы', () => {
   it('active: недавно проснулся, времени до сна много', () => {
     const g = buildGuidance({
@@ -184,14 +188,42 @@ describe('карточки дня', () => {
     expect(g.greeting.attention.join(' ')).toContain('коротк')
   })
 
-  it('night-waking: после 19:45 бодрствование не считается активным', () => {
+  it('вечернее бодрствование до отбоя (ещё не уходил в ночь) — не ночное пробуждение', () => {
     const g = buildGuidance({
       child,
-      events: [sleep('2026-07-04T18:00', '2026-07-04T20:00')], // проснулся в 20:00
+      events: [sleep('2026-07-04T18:00', '2026-07-04T20:00')], // вечерний сон, проснулся в 20:00
       now: ts('2026-07-04T20:20')
     })
-    expect(g.phase).toBe('night-waking')
+    // Время позднее (isNight), но малыш ещё не уходил в ночь — не ночное пробуждение
     expect(g.isNight).toBe(true)
+    expect(g.phase).not.toBe('night-waking')
+  })
+
+  it('night-waking: проснулся после ночного отбоя', () => {
+    const g = buildGuidance({
+      child,
+      events: [sleep('2026-07-04T20:00', '2026-07-04T23:30')], // отбой 20:00, проснулся в 23:30
+      now: ts('2026-07-04T23:45')
+    })
+    expect(g.phase).toBe('night-waking')
+  })
+
+  it('night-waking: раннее пробуждение до начала дня (7:00) — ночное', () => {
+    const g = buildGuidance({
+      child,
+      events: [sleep('2026-07-04T20:00', '2026-07-05T06:30')], // отбой 20:00, проснулся 06:30
+      now: ts('2026-07-05T06:45')
+    })
+    expect(g.phase).toBe('night-waking')
+  })
+
+  it('утренний подъём после 7:00 — не ночное пробуждение', () => {
+    const g = buildGuidance({
+      child,
+      events: [sleep('2026-07-04T20:00', '2026-07-05T06:30')], // отбой 20:00, проснулся 06:30
+      now: ts('2026-07-05T07:20')
+    })
+    expect(g.phase).not.toBe('night-waking')
   })
 
   it('night-waking: через 3+ часа после отбоя → совет про кормление', () => {
@@ -242,6 +274,40 @@ describe('карточки дня', () => {
       now: ts('2026-07-04T13:35')
     })
     expect(g.showExtendNap).toBe(true)
+  })
+
+  it('дневной сон 35+ мин — продлить не предлагаем', () => {
+    const g = buildGuidance({
+      child,
+      events: [sleep('2026-07-04T13:00', '2026-07-04T13:40')], // 40 мин
+      now: ts('2026-07-04T13:45')
+    })
+    expect(g.showExtendNap).toBe(false)
+  })
+
+  it('короткий ночной сон после купания (<30 мин) → ночное пробуждение и продлить', () => {
+    const g = buildGuidance({
+      child,
+      events: [
+        bath('2026-07-04T19:00', '2026-07-04T19:20'),
+        sleep('2026-07-04T19:30', '2026-07-04T19:50') // отбой после купания, 20 мин
+      ],
+      now: ts('2026-07-04T19:55')
+    })
+    expect(g.phase).toBe('night-waking')
+    expect(g.showExtendNap).toBe(true)
+  })
+
+  it('ранний отбой после купания (до 19:00) — бодрствование считается ночным пробуждением', () => {
+    const g = buildGuidance({
+      child,
+      events: [
+        bath('2026-07-04T18:15', '2026-07-04T18:35'),
+        sleep('2026-07-04T18:45', '2026-07-04T19:05') // отбой начался до 19:00
+      ],
+      now: ts('2026-07-04T19:10')
+    })
+    expect(g.phase).toBe('night-waking')
   })
 
   it('поддержка мамы при малом дневном сне к вечеру', () => {

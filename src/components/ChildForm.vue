@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import dayjs from 'dayjs'
 import { useChildrenStore, CHILD_COLORS } from '../stores/children'
-import { FEEDING_TYPES, SLEEP_AIDS } from '../data/childOptions'
+import { GENDERS, FEEDING_TYPES, SLEEP_AIDS } from '../data/childOptions'
 
 const props = defineProps({
   child: { type: Object, default: null }
@@ -13,6 +13,7 @@ const store = useChildrenStore()
 
 const name = ref(props.child?.name || '')
 const birthDate = ref(props.child?.birthDate || '')
+const gender = ref(props.child?.gender || null)
 const color = ref(props.child?.color || CHILD_COLORS[store.children.length % CHILD_COLORS.length])
 const feeding = ref(props.child?.feeding || 'breast')
 const aids = ref([...(props.child?.aids || [])])
@@ -33,6 +34,7 @@ async function save() {
   const data = {
     name: name.value.trim(),
     birthDate: birthDate.value,
+    gender: gender.value,
     color: color.value,
     feeding: feeding.value,
     aids: [...aids.value]
@@ -55,6 +57,18 @@ async function save() {
     <div class="field">
       <label>Дата рождения</label>
       <input v-model="birthDate" type="date" :max="today" />
+    </div>
+    <div class="field">
+      <label>Пол</label>
+      <div class="chips">
+        <button
+          v-for="g in GENDERS"
+          :key="g.id"
+          class="chip"
+          :class="{ active: gender === g.id }"
+          @click="gender = g.id"
+        >{{ g.icon }} {{ g.label }}</button>
+      </div>
     </div>
     <div class="field">
       <label>Кормление</label>

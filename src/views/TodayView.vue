@@ -49,7 +49,9 @@ watch(
   }
 )
 
-const isNightWaking = computed(() => guidance.value?.phase === 'night-waking')
+// Ночное пробуждение для верхней карточки: пока идёт ночь и малыш проснулся,
+// показываем «Ночное пробуждение», а не «Бодрствует» — даже во время продления сна.
+const isNightWaking = computed(() => !!guidance.value?.isNightWaking)
 
 const status = computed(() => {
   const a = advice.value
@@ -114,15 +116,13 @@ const showGreeting = computed(() =>
 // они доступны в разделе «Советы». Оставляем только ситуативные.
 const secondaryAdvices = computed(() => advice.value?.advices.filter(a => !a.general).slice(0, 4) || [])
 
-// Крестик закрывает только советы из профиля (соска, укачивание, пеленание и т.п.).
-// Ситуативные подсказки (перегул, пора спать) остаются всегда.
-const adviceDismissed = computed(() => settling.isAdviceDismissed(children.activeChild?.id))
+// Крестик закрывает конкретную подсказку из профиля (соска, укачивание, пеленание и т.п.)
+// до конца дня. Ситуативные подсказки (перегул, пора спать) остаются всегда.
 const visibleAdvices = computed(() =>
-  secondaryAdvices.value.filter(a => !a.profile || !adviceDismissed.value)
+  secondaryAdvices.value.filter(a => !a.profile || !settling.isAdviceDismissed(children.activeChild?.id, a.id))
 )
-const hasProfileAdvices = computed(() => secondaryAdvices.value.some(a => a.profile))
-function dismissAdvice() {
-  settling.dismissAdvice(children.activeChild?.id)
+function dismissAdvice(id) {
+  settling.dismissAdvice(children.activeChild?.id, id)
 }
 
 function showToast(msg) {
@@ -133,6 +133,10 @@ function showToast(msg) {
 
 function dismissGreeting() {
   settling.dismissGreeting(children.activeChild?.id)
+}
+
+function extendNap() {
+  settling.startExtension(children.activeChild?.id)
 }
 
 const showMilestone = computed(() =>
@@ -206,6 +210,11 @@ function dismissMilestone() {
     <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
     <SettlingFlow v-if="guidance && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
+    <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул(а)» -->
+    <button v-if="guidance?.showExtendNap" class="btn block extend-btn" @click="extendNap">
+      🔁 Продлить сон
+    </button>
+
     <SleepButton v-if="showSleepButton" />
     <EventButtons @logged="showToast" />
 
@@ -213,11 +222,14 @@ function dismissMilestone() {
     <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
     <template v-if="visibleAdvices.length">
-      <div class="row advices-head">
-        <div class="card-title grow" style="margin: 0">Ещё подсказки</div>
-        <button v-if="hasProfileAdvices && !adviceDismissed" class="adv-close" @click="dismissAdvice" aria-label="Скрыть советы из профиля">×</button>
-      </div>
-      <AdviceCard v-for="a in visibleAdvices" :key="a.id" :advice="a" />
+      <div class="card-title" style="margin-bottom: 6px">Ещё подсказки</div>
+      <AdviceCard
+        v-for="a in visibleAdvices"
+        :key="a.id"
+        :advice="a"
+        :dismissible="a.profile"
+        @dismiss="dismissAdvice(a.id)"
+      />
     </template>
 
     <!-- Быстрые темы-справки -->
@@ -233,15 +245,7 @@ function dismissMilestone() {
 <style scoped>
 .status-card { padding-bottom: 12px; }
 
-.advices-head { margin-bottom: 6px; }
-
-.adv-close {
-  width: 30px;
-  height: 30px;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--c-text-soft);
-}
+.extend-btn { margin-bottom: 12px; }
 
 .status-icon { font-size: 34px; }
 

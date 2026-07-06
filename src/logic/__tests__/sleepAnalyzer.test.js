@@ -8,6 +8,10 @@ function sleep(start, end) {
   return { id: start, type: 'sleep', startedAt: ts(start), endedAt: end ? ts(end) : null }
 }
 
+function bath(start, end) {
+  return { id: 'bath' + start, type: 'bath', startedAt: ts(start), endedAt: end ? ts(end) : null }
+}
+
 const NOW = ts('2026-07-04T16:00:00')
 
 describe('analyzeDay', () => {
@@ -34,6 +38,42 @@ describe('analyzeDay', () => {
     const day = analyzeDay([], NOW, NOW)
     expect(day.totalSleepMin).toBe(0)
     expect(day.napCount).toBe(0)
+  })
+
+  it('отбой после купания 19:30 не считается дневным сном', () => {
+    const END = ts('2026-07-04T22:00:00')
+    const events = [
+      sleep('2026-07-03T20:00', '2026-07-04T07:00'), // ночь
+      sleep('2026-07-04T13:00', '2026-07-04T14:30'), // дневной 90
+      bath('2026-07-04T19:30', '2026-07-04T20:00'),
+      sleep('2026-07-04T20:15', null) // ночной отбой после купания
+    ]
+    const day = analyzeDay(events, END, END)
+    expect(day.napCount).toBe(1)
+    expect(day.daySleepMin).toBe(90)
+    // Ночь = 420 (утренний хвост) + 105 (отбой 20:15→22:00)
+    expect(day.nightSleepMin).toBe(525)
+  })
+
+  it('без купания последний сон с 20:00 — ночной', () => {
+    const END = ts('2026-07-04T22:00:00')
+    const events = [
+      sleep('2026-07-04T13:00', '2026-07-04T14:30'), // дневной 90
+      sleep('2026-07-04T20:00', null) // отбой, без пробуждений — ночной
+    ]
+    const day = analyzeDay(events, END, END)
+    expect(day.napCount).toBe(1)
+    expect(day.daySleepMin).toBe(90)
+  })
+
+  it('поздний сон до 21:00 без вечернего сна — дневной', () => {
+    const END = ts('2026-07-04T20:30:00')
+    const events = [
+      sleep('2026-07-04T18:30', '2026-07-04T19:15') // 45 мин, начат до 19:00 → дневной
+    ]
+    const day = analyzeDay(events, END, END)
+    expect(day.napCount).toBe(1)
+    expect(day.daySleepMin).toBe(45)
   })
 })
 
