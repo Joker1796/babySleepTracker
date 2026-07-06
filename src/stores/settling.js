@@ -6,6 +6,7 @@ const EXT_KEY = 'napExtensions'
 const DISMISS_KEY = 'greetingDismissed'
 const MILESTONE_KEY = 'milestoneDismissed'
 const ADVICE_KEY = 'adviceDismissed'
+const ENCOURAGE_KEY = 'encouragementDismissed'
 
 function load(key) {
   try { return JSON.parse(localStorage.getItem(key)) || {} } catch { return {} }
@@ -19,7 +20,8 @@ export const useSettlingStore = defineStore('settling', {
     extensions: load(EXT_KEY),
     greetingDismissed: load(DISMISS_KEY),
     milestoneDismissed: load(MILESTONE_KEY),
-    adviceDismissed: load(ADVICE_KEY)
+    adviceDismissed: load(ADVICE_KEY),
+    encouragementDismissed: load(ENCOURAGE_KEY)
   }),
   actions: {
     get(childId) {
@@ -70,6 +72,13 @@ export const useSettlingStore = defineStore('settling', {
     },
     isMilestoneDismissed(childId) {
       return this.milestoneDismissed[childId] === new Date(simNow()).toDateString()
+    },
+    dismissEncouragement(childId) {
+      this.encouragementDismissed[childId] = new Date(simNow()).toDateString()
+      localStorage.setItem(ENCOURAGE_KEY, JSON.stringify(this.encouragementDismissed))
+    },
+    isEncouragementDismissed(childId) {
+      return this.encouragementDismissed[childId] === new Date(simNow()).toDateString()
     },
     // Крестик скрывает конкретную профильную подсказку до конца дня.
     // Модель: childId → { date, ids: [adviceId] }.

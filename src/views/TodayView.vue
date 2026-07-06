@@ -141,6 +141,14 @@ const showMilestone = computed(() =>
 function dismissMilestone() {
   settling.dismissMilestone(children.activeChild?.id)
 }
+
+// Поддержка для мамы — можно закрыть крестиком на день
+const showEncouragement = computed(() =>
+  guidance.value?.encouragement && !settling.isEncouragementDismissed(children.activeChild?.id)
+)
+function dismissEncouragement() {
+  settling.dismissEncouragement(children.activeChild?.id)
+}
 </script>
 
 <template>
@@ -190,7 +198,8 @@ function dismissMilestone() {
     </div>
 
     <!-- Поддержка для мамы -->
-    <div v-if="guidance?.encouragement" class="card support">
+    <div v-if="showEncouragement" class="card support">
+      <button class="support-close" @click="dismissEncouragement" aria-label="Скрыть">×</button>
       <span class="support-icon">💛</span>
       <p>{{ guidance.encouragement.text }}</p>
     </div>
@@ -306,7 +315,23 @@ function dismissMilestone() {
 
 .trophy p, .support p { margin: 0; font-size: 14px; }
 
-.support { background: var(--c-medicine-soft); }
+.support {
+  position: relative;
+  background: var(--c-medicine-soft);
+}
+
+.support p { padding-right: 24px; }
+
+.support-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--c-text-soft);
+}
 
 .milestone {
   position: relative;
