@@ -7,8 +7,6 @@ import { useSettlingStore } from '../stores/settling'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
 import { formatDurationMin, plural } from '../logic/age'
-import { poopVerb } from '../logic/gender'
-import { dayCount, dayTotalMin } from '../logic/eventStats'
 import ChildSwitcher from '../components/ChildSwitcher.vue'
 import SleepButton from '../components/SleepButton.vue'
 import SettlingFlow from '../components/SettlingFlow.vue'
@@ -100,10 +98,6 @@ const timeToSleepLabel = computed(() => {
   return left > 0 ? `время до сна ~${formatDurationMin(left)}` : 'пора укладывать'
 })
 
-// Итоги дня по событиям
-const tummyMinToday = computed(() => dayTotalMin(events.sorted, 'tummy', now.value, now.value))
-const poopToday = computed(() => dayCount(events.sorted, 'poop', now.value))
-const poopWord = computed(() => poopVerb(children.activeChild?.gender))
 
 // Флоу сам даёт кнопку «Уснул» во время укладывания — большая кнопка тогда лишняя
 const showSleepButton = computed(() =>
@@ -185,14 +179,6 @@ function dismissMilestone() {
         <div class="forecast-item">
           <span class="f-label">Дневной сон сегодня</span>
           <span class="f-value">{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
-        </div>
-        <div class="forecast-item">
-          <span class="f-label">🤸 Выкладывание на живот</span>
-          <span class="f-value">{{ tummyMinToday > 0 ? formatDurationMin(tummyMinToday) : '—' }}</span>
-        </div>
-        <div class="forecast-item">
-          <span class="f-label">💩 {{ poopWord }}</span>
-          <span class="f-value">{{ poopToday }} {{ plural(poopToday, 'раз', 'раза', 'раз') }}</span>
         </div>
       </div>
     </div>
