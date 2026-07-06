@@ -174,8 +174,10 @@ function dismissEncouragement() {
       </div>
 
       <div v-if="progress != null && !advice.state.sleeping && !isNightWaking" class="ww">
-        <div class="ww-bar">
-          <div class="ww-fill" :style="{ width: `${Math.min(progress, 1) * 100}%` }"></div>
+        <div class="ww-track">
+          <div class="ww-line"></div>
+          <span class="ww-star" :style="{ left: `${Math.min(progress, 1) * 100}%` }">✨</span>
+          <span class="ww-moon">🌙</span>
         </div>
         <div class="ww-labels muted small">
           <span>{{ wokeAtLabel }}</span>
@@ -259,23 +261,56 @@ function dismissEncouragement() {
   gap: 8px;
 }
 
-.ww-bar {
-  height: 8px;
-  border-radius: 4px;
-  background: var(--c-surface-2);
-  overflow: hidden;
+/* Дорожка «звёздочка плывёт к луне»: линия, движущаяся звёздочка и луна справа */
+.ww-track {
+  position: relative;
+  height: 24px;
   margin-bottom: 4px;
 }
 
-.ww-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s;
-  /* Зелёный градиент от светлого к насыщенному; фиксируем масштаб градиента
-     к ширине карточки, чтобы по мере заполнения цвет становился насыщеннее. */
-  background-image: linear-gradient(90deg, var(--c-ww-from), var(--c-ww-to));
-  background-size: 496px 100%;
-  background-repeat: no-repeat;
+.ww-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 22px;
+  height: 3px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-border) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.ww-moon {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ww-star {
+  position: absolute;
+  top: 50%;
+  /* left задаётся инлайн по прогрессу; центрируем и приподнимаем */
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  line-height: 1;
+  /* Плавное перемещение при обновлении прогресса + лёгкое мерцание */
+  transition: left 0.6s ease;
+  animation: ww-twinkle 1.6s ease-in-out infinite;
+}
+
+@keyframes ww-twinkle {
+  0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -60%) scale(1.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-star { animation: none; }
 }
 
 .forecast {
