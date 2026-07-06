@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
+import { sleepVerb, wakeVerb } from '../logic/gender'
 
 const events = useEventsStore()
 const children = useChildrenStore()
@@ -10,15 +11,8 @@ const sleeping = computed(() => events.currentSleep)
 const busy = ref(false)
 
 // Слово на кнопке — с учётом пола ребёнка из профиля.
-// Если пол не выбран, показываем форму с обоими окончаниями.
-const female = computed(() => children.activeChild?.gender === 'female')
-const male = computed(() => children.activeChild?.gender === 'male')
-const wakeWord = computed(() =>
-  female.value ? 'Проснулась' : male.value ? 'Проснулся' : 'Проснулся(ась)'
-)
-const sleepWord = computed(() =>
-  female.value ? 'Уснула' : male.value ? 'Уснул' : 'Уснул(а)'
-)
+const wakeWord = computed(() => wakeVerb(children.activeChild?.gender))
+const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
 
 async function toggle() {
   // Защита от двойного тапа: блокируем на время запроса

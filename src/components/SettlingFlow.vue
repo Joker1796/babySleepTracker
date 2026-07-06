@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
+import { sleepVerb } from '../logic/gender'
 import WakeChecklist from './WakeChecklist.vue'
 
 const props = defineProps({
@@ -16,6 +17,8 @@ const children = useChildrenStore()
 
 const childId = computed(() => children.activeChild?.id)
 const phase = computed(() => props.guidance.phase)
+// «Уснул/Уснула» — по полу ребёнка из профиля
+const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
 
 // Раскрытие подробностей идеи «чем заняться» (по аналогии с быстрыми темами)
 const openActivity = ref(null)
@@ -101,7 +104,7 @@ function stopExtension() {
       </ol>
       <div class="row two-btn">
         <button class="btn secondary grow" @click="stopExtension">Начать бодрствование</button>
-        <button class="btn grow" @click="fellAsleep">Уснул(а)</button>
+        <button class="btn grow" @click="fellAsleep">{{ sleepWord }}</button>
       </div>
     </template>
 
@@ -132,7 +135,7 @@ function stopExtension() {
         </ol>
       </template>
 
-      <button class="btn block" @click="fellAsleep">Уснул(а)</button>
+      <button class="btn block" @click="fellAsleep">{{ sleepWord }}</button>
 
       <!-- Назад к выбору места (значок слева внизу) -->
       <button

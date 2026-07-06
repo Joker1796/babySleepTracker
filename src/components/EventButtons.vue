@@ -1,12 +1,18 @@
 <script setup>
 import { computed } from 'vue'
 import { useEventsStore } from '../stores/events'
+import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
+import { poopVerb } from '../logic/gender'
 
 const emit = defineEmits(['logged'])
 const events = useEventsStore()
+const children = useChildrenStore()
 const now = useNow()
+
+// «Покакал/Покакала» — по полу ребёнка из профиля
+const poopWord = computed(() => poopVerb(children.activeChild?.gender))
 
 const tummy = computed(() => events.openInterval('tummy'))
 const bath = computed(() => events.openInterval('bath'))
@@ -40,7 +46,7 @@ async function logPoop() {
 <template>
   <div class="event-btns">
     <button class="ev-btn tummy" :class="{ on: tummy }" @click="toggleTummy">
-      <span class="ev-icon">🤸</span>
+      <span class="ev-icon">👶</span>
       <span>{{ tummy ? `Живот ${elapsed(tummy)}` : 'Выкладывание' }}</span>
     </button>
     <button class="ev-btn bath" :class="{ on: bath }" @click="toggleBath">
@@ -49,7 +55,7 @@ async function logPoop() {
     </button>
     <button class="ev-btn poop" @click="logPoop">
       <span class="ev-icon">💩</span>
-      <span>Покакал</span>
+      <span>{{ poopWord }}</span>
     </button>
   </div>
 </template>
