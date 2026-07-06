@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 
@@ -7,6 +7,7 @@ const events = useEventsStore()
 const children = useChildrenStore()
 
 const sleeping = computed(() => events.currentSleep)
+const busy = ref(false)
 
 // Слово на кнопке — с учётом пола ребёнка из профиля.
 // Если пол не выбран, показываем форму с обоими окончаниями.
@@ -20,16 +21,23 @@ const sleepWord = computed(() =>
 )
 
 async function toggle() {
-  if (sleeping.value) {
-    await events.endInterval(sleeping.value)
-  } else {
-    await events.startInterval('sleep')
+  // Защита от двойного тапа: блокируем на время запроса
+  if (busy.value) return
+  busy.value = true
+  try {
+    if (sleeping.value) {
+      await events.endInterval(sleeping.value)
+    } else {
+      await events.startInterval('sleep')
+    }
+  } finally {
+    busy.value = false
   }
 }
 </script>
 
 <template>
-  <button class="sleep-btn" :class="{ sleeping }" @click="toggle">
+  <button class="sleep-btn" :class="{ sleeping }" :disabled="busy" @click="toggle">
     <span class="icon">{{ sleeping ? '☀️' : '😴' }}</span>
     <span class="text">
       <span class="main">{{ sleeping ? wakeWord : sleepWord }}</span>

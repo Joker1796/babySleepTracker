@@ -43,6 +43,10 @@ export const useEventsStore = defineStore('events', {
       touchNow()
     },
     async startInterval(type, at = simNow()) {
+      // Защита от дублей (например, двойной тап): если интервал этого типа
+      // уже открыт — не создаём второй, возвращаем существующий.
+      const open = this.openInterval(type)
+      if (open) return open
       return this.add({ type, startedAt: at, endedAt: null })
     },
     async endInterval(event, at = simNow()) {
