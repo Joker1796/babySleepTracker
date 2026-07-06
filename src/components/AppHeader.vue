@@ -1,13 +1,22 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useChildrenStore } from '../stores/children'
 
-const NAV_ITEMS = [
-  { to: '/', icon: '🏠', label: 'Сегодня' },
-  { to: '/history', icon: '📅', label: 'История' },
-  { to: '/advice', icon: '💡', label: 'Советы' },
-  { to: '/stats', icon: '📊', label: 'Статистика' },
-  { to: '/settings', icon: '⚙️', label: 'Настройки' }
-]
+const children = useChildrenStore()
+
+const NAV_ITEMS = computed(() => {
+  const base = [
+    { to: '/', icon: '🏠', label: 'Сегодня' },
+    { to: '/history', icon: '📅', label: 'История' },
+    { to: '/advice', icon: '💡', label: 'Советы' },
+    { to: '/stats', icon: '📊', label: 'Статистика' }
+  ]
+  if (children.activeChild?.regime?.mode === 'custom') {
+    base.push({ to: '/regime', icon: '🎛️', label: 'Мой режим' })
+  }
+  base.push({ to: '/settings', icon: '⚙️', label: 'Настройки' })
+  return base
+})
 
 const menuOpen = ref(false)
 function toggleMenu() { menuOpen.value = !menuOpen.value }

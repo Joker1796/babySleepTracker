@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import { ageInMonths, formatDurationMin } from './age'
 import { getNorms, avgWakeWindow } from '../data/sleepNorms'
+import { regimeToNorms } from '../data/regime'
 import { currentState, analyzeDay, lastNapToday, durationMin, SHORT_NAP_MIN } from './sleepAnalyzer'
 import { ADVISOR_RULES } from '../data/advisorRules'
 
@@ -12,16 +13,21 @@ function timeOn(now, hhmm) {
 // Главная функция движка: собирает контекст, считает прогнозы и прогоняет правила
 export function buildAdvice({ child, events, now = Date.now() }) {
   const ageM = ageInMonths(child.birthDate, now)
-  const norms = getNorms(ageM)
+  // Настраиваемый режим переопределяет возрастные нормы значениями родителя
+  const custom = child.regime?.mode === 'custom' ? child.regime : null
+  const norms = custom ? regimeToNorms(custom) : getNorms(ageM)
+  const windDownMin = custom && custom.windDownMin != null ? Number(custom.windDownMin) : 30
   const state = currentState(events, now)
   const today = analyzeDay(events, now, now)
   const lastNap = lastNapToday(events, now)
   const lastNapMin = lastNap ? durationMin(lastNap) : null
   const shortLastNap = lastNapMin != null && lastNapMin < SHORT_NAP_MIN
 
-  // Окно бодрствования: после короткого сна сокращаем — ребёнок восстановился хуже
+  // Окно бодрствования: после короткого сна сокращаем — ребёнок восстановился хуже.
+  // В настраиваемом режиме сокращение можно отключить (shortNapReduce === false).
+  const allowShortNapReduce = !custom || custom.shortNapReduce !== false
   let wakeWindowMin = avgWakeWindow(norms)
-  if (shortLastNap) {
+  if (shortLastNap && allowShortNapReduce) {
     wakeWindowMin = Math.max(Math.round(norms.wakeWindow[0] * 0.75), norms.wakeWindow[0] - 20)
   }
 
@@ -93,6 +99,7 @@ export function buildAdvice({ child, events, now = Date.now() }) {
     state,
     today,
     wakeWindowMin,
+    windDownMin,
     wakeProgress,
     nextNapAt,
     wakeWindowLeft,

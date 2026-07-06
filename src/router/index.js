@@ -5,6 +5,7 @@ const routes = [
   { path: '/history', name: 'history', component: () => import('../views/HistoryView.vue') },
   { path: '/advice', name: 'advice', component: () => import('../views/AdviceView.vue') },
   { path: '/stats', name: 'stats', component: () => import('../views/StatsView.vue') },
+  { path: '/regime', name: 'regime', component: () => import('../views/RegimeView.vue') },
   { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') }
 ]
 

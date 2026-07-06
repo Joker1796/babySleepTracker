@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { db, uid } from '../db'
+import { ageInMonths } from '../logic/age'
+import { seedRegimeFromNorms } from '../data/regime'
 
 export const CHILD_COLORS = ['#7c6ff0', '#2f9e6e', '#d9598b', '#2492c9', '#d97706', '#8a5cd6']
 
@@ -27,7 +29,8 @@ export const useChildrenStore = defineStore('children', {
         color: color || CHILD_COLORS[this.children.length % CHILD_COLORS.length],
         feeding: feeding || 'breast',
         aids: aids || [],
-        gender: gender || null
+        gender: gender || null,
+        regime: { mode: 'auto' }
       }
       await db.children.put(child)
       this.children.push(child)
@@ -35,9 +38,32 @@ export const useChildrenStore = defineStore('children', {
       return child
     },
     async update(child) {
-      await db.children.put({ ...child })
-      const i = this.children.findIndex(c => c.id === child.id)
-      if (i !== -1) this.children[i] = { ...child }
+      // Снимаем реактивность Vue: вложенные массивы/объекты (например, aids, regime)
+      // могут остаться Proxy, а IndexedDB их не клонирует (DataCloneError).
+      const plain = JSON.parse(JSON.stringify(child))
+      await db.children.put(plain)
+      const i = this.children.findIndex(c => c.id === plain.id)
+      if (i !== -1) this.children[i] = plain
+    },
+    // Переключение режима «Авто ⇄ Настраиваемый». При первом включении custom —
+    // засеваем параметры из возрастных норм, чтобы значения были осмысленными.
+    async setRegimeMode(id, mode) {
+      const child = this.children.find(c => c.id === id)
+      if (!child) return
+      let regime
+      if (mode === 'custom') {
+        regime = child.regime && child.regime.wakeWindow != null
+          ? { ...child.regime, mode: 'custom' }
+          : seedRegimeFromNorms(ageInMonths(child.birthDate))
+      } else {
+        regime = { ...(child.regime || {}), mode: 'auto' }
+      }
+      await this.update({ ...child, regime })
+    },
+    async updateRegime(id, patch) {
+      const child = this.children.find(c => c.id === id)
+      if (!child) return
+      await this.update({ ...child, regime: { ...(child.regime || { mode: 'custom' }), ...patch } })
     },
     async remove(id) {
       await db.events.where('childId').equals(id).delete()

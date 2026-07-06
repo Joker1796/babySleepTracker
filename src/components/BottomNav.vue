@@ -1,11 +1,23 @@
 <script setup>
-const items = [
-  { to: '/', icon: '🏠', label: 'Сегодня' },
-  { to: '/history', icon: '📅', label: 'История' },
-  { to: '/advice', icon: '💡', label: 'Советы' },
-  { to: '/stats', icon: '📊', label: 'Статистика' },
-  { to: '/settings', icon: '⚙️', label: 'Ещё' }
-]
+import { computed } from 'vue'
+import { useChildrenStore } from '../stores/children'
+
+const children = useChildrenStore()
+
+const items = computed(() => {
+  const base = [
+    { to: '/', icon: '🏠', label: 'Сегодня' },
+    { to: '/history', icon: '📅', label: 'История' },
+    { to: '/advice', icon: '💡', label: 'Советы' },
+    { to: '/stats', icon: '📊', label: 'Стат.' }
+  ]
+  // Вкладка «Режим» — только когда включён настраиваемый режим
+  if (children.activeChild?.regime?.mode === 'custom') {
+    base.push({ to: '/regime', icon: '🎛️', label: 'Режим' })
+  }
+  base.push({ to: '/settings', icon: '⚙️', label: 'Ещё' })
+  return base
+})
 </script>
 
 <template>

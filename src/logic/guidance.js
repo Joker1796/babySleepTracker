@@ -52,7 +52,7 @@ export function metNorms(summary, norms) {
 // settling — сессия укладывания или null; extension — сессия продления сна или null.
 export function buildGuidance({ child, events, now = Date.now(), settling = null, extension = null }) {
   const a = buildAdvice({ child, events, now })
-  const { state, norms, today, nextNapAt, wakeWindowLeft, bedtimeAt, nextIsNight, ageM } = a
+  const { state, norms, today, nextNapAt, wakeWindowLeft, bedtimeAt, nextIsNight, ageM, windDownMin } = a
   const hour = dayjs(now).hour()
 
   const dayStart = dayjs(now).startOf('day').valueOf()
@@ -118,7 +118,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   else if (settling && settling.startedAt) phase = 'settling'
   else if (isNightWaking) phase = 'night-waking'
   else if (wakeWindowLeft != null && wakeWindowLeft <= 10) phase = 'time-to-sleep'
-  else if (wakeWindowLeft != null && wakeWindowLeft <= 30) phase = 'wind-down'
+  else if (wakeWindowLeft != null && wakeWindowLeft <= (windDownMin || 30)) phase = 'wind-down'
   else phase = 'active'
 
   const g = {
