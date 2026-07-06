@@ -3,6 +3,7 @@ import { onMounted, watch, defineAsyncComponent } from 'vue'
 import { useChildrenStore } from './stores/children'
 import { useEventsStore } from './stores/events'
 import { useSettingsStore } from './stores/settings'
+import AppHeader from './components/AppHeader.vue'
 import BottomNav from './components/BottomNav.vue'
 import OnboardingView from './views/OnboardingView.vue'
 
@@ -32,6 +33,7 @@ watch(
   <div class="app">
     <OnboardingView v-if="children.loaded && children.children.length === 0" />
     <template v-else-if="children.loaded">
+      <AppHeader />
       <router-view />
       <BottomNav />
     </template>
