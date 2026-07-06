@@ -1,16 +1,19 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, nextTick, onMounted } from 'vue'
 import dayjs from 'dayjs'
+import { useRoute } from 'vue-router'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useNow } from '../composables/useNow'
 import { analyzeDay } from '../logic/sleepAnalyzer'
-import { ageInMonths, formatDurationMin } from '../logic/age'
+import { ageInMonths, formatDurationMin, plural } from '../logic/age'
 import { getNorms } from '../data/sleepNorms'
+import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 
 const children = useChildrenStore()
 const events = useEventsStore()
 const now = useNow()
+const route = useRoute()
 
 const days = ref(7)
 
@@ -82,6 +85,40 @@ const avgVerdict = computed(() => {
   if (avg.value.total > max + 30) return 'Сна в среднем больше нормы — если малыш бодр и весел, для младенцев это обычно не проблема.'
   return 'Суммарный сон в пределах возрастной нормы — отличная работа!'
 })
+
+// ── Расписание на завтра ──
+const showSchedule = ref(false)
+const scheduleCard = ref(null)
+// Выбор начала/конца дня (строки HH:MM). null → берётся из профиля.
+const wakeStr = ref(null)
+const bedStr = ref(null)
+
+const profile = computed(() =>
+  scheduleProfile(events.sorted, now.value, days.value, children.activeChild)
+)
+
+const schedule = computed(() =>
+  buildSchedule(profile.value, {
+    wakeMin: hhmmToMin(wakeStr.value),
+    bedMin: hhmmToMin(bedStr.value)
+  })
+)
+
+// Засечки времени на 24-часовой полосе
+const timeTicks = [0, 6, 12, 18, 24]
+
+function openSchedule() {
+  if (wakeStr.value == null) wakeStr.value = minToHHMM(profile.value.wakeMin)
+  if (bedStr.value == null) bedStr.value = minToHHMM(profile.value.bedMin)
+  showSchedule.value = true
+}
+
+onMounted(() => {
+  if (route.query.schedule) {
+    openSchedule()
+    nextTick(() => scheduleCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+})
 </script>
 
 <template>
@@ -131,6 +168,70 @@ const avgVerdict = computed(() => {
     <p v-else class="muted small" style="text-align: center">
       Пока нет данных — отмечайте сон на главном экране, и здесь появится картина недели.
     </p>
+
+    <button v-if="!showSchedule" class="btn block schedule-open" @click="openSchedule">
+      🗓️ Построить расписание на завтра
+    </button>
+
+    <div v-if="showSchedule" ref="scheduleCard" class="card schedule">
+      <div class="card-title">Примерный распорядок на завтра</div>
+      <p class="muted small src-note">
+        {{ schedule.source === 'history'
+          ? `На основе средних за ${schedule.daysCounted} ${plural(schedule.daysCounted, 'день', 'дня', 'дней')} с данными`
+          : 'По возрастным нормам — данных о сне пока мало' }}
+      </p>
+
+      <div class="day-bounds">
+        <label class="bound">
+          <span>Начало дня</span>
+          <input v-model="wakeStr" type="time" />
+        </label>
+        <label class="bound">
+          <span>Конец дня</span>
+          <input v-model="bedStr" type="time" />
+        </label>
+      </div>
+
+      <!-- 24-часовая полоса -->
+      <div class="tl-wrap">
+        <div class="tl-bar">
+          <div
+            v-for="(s, i) in schedule.segments"
+            :key="i"
+            class="tl-seg"
+            :class="s.type"
+            :style="{ left: `${(s.from / 1440) * 100}%`, width: `${((s.to - s.from) / 1440) * 100}%` }"
+          ></div>
+        </div>
+        <div class="tl-ticks">
+          <span v-for="t in timeTicks" :key="t" :style="{ left: `${(t / 24) * 100}%` }">{{ t }}</span>
+        </div>
+      </div>
+
+      <div class="sched-list">
+        <div class="sched-row">
+          <span class="sr-ico">☀️</span>
+          <span class="sr-label">Подъём</span>
+          <span class="sr-time">{{ schedule.wake.hhmm }}</span>
+        </div>
+        <template v-for="(nap, i) in schedule.naps" :key="i">
+          <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
+          <div class="sched-row">
+            <span class="sr-ico">😴</span>
+            <span class="sr-label">Сон {{ i + 1 }} <span class="muted small">· {{ formatDurationMin(nap.durMin) }}</span></span>
+            <span class="sr-time">{{ nap.startHHMM }}–{{ nap.endHHMM }}</span>
+          </div>
+        </template>
+        <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
+        <div class="sched-row night">
+          <span class="sr-ico">🌙</span>
+          <span class="sr-label">Ночной сон</span>
+          <span class="sr-time">{{ schedule.bedtime.hhmm }}</span>
+        </div>
+      </div>
+
+      <p class="muted small" style="margin-top: 10px">Ориентир по средним, а не жёсткое правило — подстраивайте под признаки усталости малыша.</p>
+    </div>
   </div>
 </template>
 
@@ -191,5 +292,120 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
   justify-content: space-between;
   font-size: 14px;
   padding: 4px 0;
+}
+
+.schedule-open {
+  margin-bottom: 12px;
+}
+
+.src-note {
+  margin: -4px 0 12px;
+}
+
+.day-bounds {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bound {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bound span {
+  font-size: 13px;
+  color: var(--c-text-soft);
+}
+
+.bound input {
+  width: 100%;
+}
+
+/* 24-часовая полоса */
+.tl-wrap {
+  margin-bottom: 14px;
+}
+
+.tl-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--c-surface-2);
+  overflow: hidden;
+}
+
+.tl-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.tl-seg.night { background: var(--c-night-bar); }
+.tl-seg.day { background: var(--c-day-bar); }
+
+.tl-ticks {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+}
+
+.tl-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: var(--c-text-soft);
+}
+
+.tl-ticks span:first-child { transform: none; }
+.tl-ticks span:last-child { transform: translateX(-100%); }
+
+.sched-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-2);
+}
+
+.sched-row.night {
+  background: var(--c-primary-soft);
+}
+
+.sr-ico { font-size: 18px; }
+
+.sr-label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sr-time {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sched-gap {
+  padding: 3px 0 3px 40px;
+  position: relative;
+}
+
+.sched-gap::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-border);
 }
 </style>

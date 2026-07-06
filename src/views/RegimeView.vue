@@ -1,13 +1,21 @@
 <script setup>
 import { computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
-import { formatDurationMin } from '../logic/age'
+import { useNow } from '../composables/useNow'
+import { formatDurationMin, ageInMonths } from '../logic/age'
+import { getNorms } from '../data/sleepNorms'
 
 const children = useChildrenStore()
+const now = useNow()
 
 const child = computed(() => children.activeChild)
 const regime = computed(() => child.value?.regime || null)
 const isCustom = computed(() => regime.value?.mode === 'custom')
+
+// Возрастные нормы — подсказка родителю (по текущему возрасту ребёнка)
+const norms = computed(() =>
+  child.value ? getNorms(ageInMonths(child.value.birthDate, now.value)) : null
+)
 
 // Двусторонняя привязка поля режима: чтение из regime, запись через updateRegime.
 function field(key, { number = false } = {}) {
@@ -44,6 +52,20 @@ function enableCustom() {
 <template>
   <div class="page">
     <h1 class="page-title">Мой режим</h1>
+
+    <!-- Подсказка родителю: возрастные нормы по месяцам -->
+    <div v-if="norms" class="card norms-hint">
+      <div class="card-title">Нормы для возраста {{ norms.label }}</div>
+      <div class="summary">
+        <div class="sum-item"><span>Окно бодрствования</span><b>{{ norms.wakeWindow[0] }}–{{ norms.wakeWindow[1] }} мин</b></div>
+        <div class="sum-item"><span>Дневных снов</span><b>{{ norms.naps[0] === norms.naps[1] ? norms.naps[0] : `${norms.naps[0]}–${norms.naps[1]}` }}</b></div>
+        <div class="sum-item"><span>Дневной сон</span><b>{{ formatDurationMin(norms.daySleep[0]) }} – {{ formatDurationMin(norms.daySleep[1]) }}</b></div>
+        <div class="sum-item"><span>Ночной сон</span><b>{{ formatDurationMin(norms.nightSleep[0]) }} – {{ formatDurationMin(norms.nightSleep[1]) }}</b></div>
+        <div class="sum-item"><span>Всего за сутки</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
+        <div class="sum-item"><span>Отбой</span><b>{{ norms.bedtime[0] }}–{{ norms.bedtime[1] }}</b></div>
+      </div>
+      <p class="muted small norms-note">{{ norms.note }}</p>
+    </div>
 
     <template v-if="!child">
       <div class="card"><p class="muted">Сначала добавьте профиль малыша.</p></div>
@@ -131,6 +153,16 @@ function enableCustom() {
 }
 
 .sum-item span { color: var(--c-text-soft); }
+
+.norms-hint {
+  border: 1px solid var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.norms-note {
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
 
 .field { margin-bottom: 12px; }
 

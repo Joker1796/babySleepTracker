@@ -1,13 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
+import { useRouter } from 'vue-router'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow, simNow } from '../composables/useNow'
 import { analyzeDay } from '../logic/sleepAnalyzer'
-import { formatDurationMin, plural, ageInMonths } from '../logic/age'
+import { formatDurationMin, plural } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
-import { summarizeDay } from '../logic/daySummary'
 import { poopVerb } from '../logic/gender'
 import TimelineDay from '../components/TimelineDay.vue'
 import EventEditSheet from '../components/EventEditSheet.vue'
@@ -15,6 +15,7 @@ import EventEditSheet from '../components/EventEditSheet.vue'
 const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
+const router = useRouter()
 
 const dayOffset = ref(0)
 const sheetModel = ref(null)
@@ -32,22 +33,12 @@ const summary = computed(() => analyzeDay(events.sorted, dayTs.value, now.value)
 const tummyMin = computed(() => dayTotalMin(events.sorted, 'tummy', dayTs.value, now.value))
 const poopCount = computed(() => dayCount(events.sorted, 'poop', dayTs.value))
 
-const isToday = computed(() => dayOffset.value === 0)
 const gender = computed(() => children.activeChild?.gender)
 const poopWord = computed(() => poopVerb(gender.value))
 
-const summaryText = computed(() => {
-  const child = children.activeChild
-  const ageM = child ? ageInMonths(child.birthDate, dayTs.value) : 6
-  return summarizeDay({
-    summary: summary.value,
-    tummyMin: tummyMin.value,
-    poopCount: poopCount.value,
-    ageM,
-    isToday: isToday.value,
-    gender: gender.value
-  })
-})
+function goSchedule() {
+  router.push({ name: 'stats', query: { schedule: '1' } })
+}
 
 function addEvent() {
   const base = dayOffset.value === 0
@@ -91,7 +82,9 @@ function addEvent() {
           <span class="rep-value">{{ poopCount }} {{ plural(poopCount, 'раз', 'раза', 'раз') }}</span>
         </div>
       </div>
-      <p class="summary-text">{{ summaryText }}</p>
+      <button class="btn secondary block schedule-btn" @click="goSchedule">
+        🗓️ Построить расписание на завтра
+      </button>
     </div>
 
     <div class="card">
@@ -150,12 +143,7 @@ function addEvent() {
 .rep-label { color: var(--c-text-soft); }
 .rep-value { font-weight: 700; }
 
-.summary-text {
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--c-border);
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--c-text);
+.schedule-btn {
+  margin-top: 12px;
 }
 </style>
