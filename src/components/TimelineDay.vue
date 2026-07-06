@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
+import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { EVENT_TYPES } from '../data/eventTypes'
 import { formatDurationMin } from '../logic/age'
+import { poopVerb } from '../logic/gender'
 
 const props = defineProps({
   dayTs: { type: Number, required: true },
@@ -13,7 +15,14 @@ const props = defineProps({
 const emit = defineEmits(['edit'])
 
 const events = useEventsStore()
+const children = useChildrenStore()
 const now = useNow()
+
+// Название события; глаголы склоняем по полу ребёнка
+function labelOf(e) {
+  if (e.type === 'poop') return poopVerb(children.activeChild?.gender)
+  return typeOf(e).label
+}
 
 const dayEvents = computed(() => {
   const from = dayjs(props.dayTs).startOf('day').valueOf()
@@ -57,7 +66,7 @@ function durLabel(e) {
       <span class="tl-icon" :style="{ background: typeOf(e).softColor }">{{ typeOf(e).icon }}</span>
       <span class="grow tl-body">
         <span class="tl-title">
-          {{ typeOf(e).label }}
+          {{ labelOf(e) }}
           <span v-if="e.endedAt == null && typeOf(e).kind === 'interval'" class="ongoing">идёт</span>
         </span>
         <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template></span>

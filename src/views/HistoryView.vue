@@ -2,14 +2,18 @@
 import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
+import { useChildrenStore } from '../stores/children'
 import { useNow, simNow } from '../composables/useNow'
 import { analyzeDay } from '../logic/sleepAnalyzer'
-import { formatDurationMin } from '../logic/age'
+import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
+import { summarizeDay } from '../logic/daySummary'
+import { poopVerb } from '../logic/gender'
 import TimelineDay from '../components/TimelineDay.vue'
 import EventEditSheet from '../components/EventEditSheet.vue'
 
 const events = useEventsStore()
+const children = useChildrenStore()
 const now = useNow()
 
 const dayOffset = ref(0)
@@ -27,6 +31,23 @@ const summary = computed(() => analyzeDay(events.sorted, dayTs.value, now.value)
 
 const tummyMin = computed(() => dayTotalMin(events.sorted, 'tummy', dayTs.value, now.value))
 const poopCount = computed(() => dayCount(events.sorted, 'poop', dayTs.value))
+
+const isToday = computed(() => dayOffset.value === 0)
+const gender = computed(() => children.activeChild?.gender)
+const poopWord = computed(() => poopVerb(gender.value))
+
+const summaryText = computed(() => {
+  const child = children.activeChild
+  const ageM = child ? ageInMonths(child.birthDate, dayTs.value) : 6
+  return summarizeDay({
+    summary: summary.value,
+    tummyMin: tummyMin.value,
+    poopCount: poopCount.value,
+    ageM,
+    isToday: isToday.value,
+    gender: gender.value
+  })
+})
 
 function addEvent() {
   const base = dayOffset.value === 0
@@ -48,26 +69,29 @@ function addEvent() {
     </div>
 
     <div class="card summary">
-      <div class="sum-item">
-        <span class="sum-value">{{ formatDurationMin(summary.totalSleepMin) }}</span>
-        <span class="muted small">всего сна</span>
+      <div class="report">
+        <div class="rep-row">
+          <span class="rep-label">Всего сна</span>
+          <span class="rep-value">{{ formatDurationMin(summary.totalSleepMin) }}</span>
+        </div>
+        <div class="rep-row">
+          <span class="rep-label">Ночной сон</span>
+          <span class="rep-value">{{ formatDurationMin(summary.nightSleepMin) }}</span>
+        </div>
+        <div class="rep-row">
+          <span class="rep-label">Дневной сон</span>
+          <span class="rep-value">{{ formatDurationMin(summary.daySleepMin) }} · {{ summary.napCount }} {{ plural(summary.napCount, 'сон', 'сна', 'снов') }}</span>
+        </div>
+        <div class="rep-row">
+          <span class="rep-label">👶 На животе</span>
+          <span class="rep-value">{{ tummyMin > 0 ? formatDurationMin(tummyMin) : '—' }}</span>
+        </div>
+        <div class="rep-row">
+          <span class="rep-label">💩 {{ poopWord }}</span>
+          <span class="rep-value">{{ poopCount }} {{ plural(poopCount, 'раз', 'раза', 'раз') }}</span>
+        </div>
       </div>
-      <div class="sum-item">
-        <span class="sum-value">{{ formatDurationMin(summary.daySleepMin) }}</span>
-        <span class="muted small">днём</span>
-      </div>
-      <div class="sum-item">
-        <span class="sum-value">{{ summary.napCount }}</span>
-        <span class="muted small">дневных снов</span>
-      </div>
-      <div class="sum-item">
-        <span class="sum-value">🤸 {{ tummyMin > 0 ? formatDurationMin(tummyMin) : '—' }}</span>
-        <span class="muted small">на животе</span>
-      </div>
-      <div class="sum-item">
-        <span class="sum-value">💩 {{ poopCount }}</span>
-        <span class="muted small">покакал</span>
-      </div>
+      <p class="summary-text">{{ summaryText }}</p>
     </div>
 
     <div class="card">
@@ -110,22 +134,28 @@ function addEvent() {
   opacity: 0.35;
 }
 
-.summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-around;
-  gap: 10px 4px;
-  text-align: center;
-}
-
-.sum-item {
+.report {
   display: flex;
   flex-direction: column;
-  flex: 1 0 30%;
+  gap: 7px;
 }
 
-.sum-value {
-  font-size: 17px;
-  font-weight: 700;
+.rep-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.rep-label { color: var(--c-text-soft); }
+.rep-value { font-weight: 700; }
+
+.summary-text {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-border);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--c-text);
 }
 </style>

@@ -35,7 +35,7 @@ export const EVENT_TYPES = {
     id: 'tummy',
     label: 'Выкладывание на живот',
     kind: 'interval',
-    icon: '🤸',
+    icon: '👶',
     color: 'var(--c-primary)',
     softColor: 'var(--c-primary-soft)',
     startLabel: 'Начали выкладывание',
