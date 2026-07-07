@@ -7,9 +7,13 @@ import { EVENT_TYPES, EVENT_TYPE_LIST, eventKind } from '../data/eventTypes'
 
 // model: null (закрыт) | { isNew: true, type?, startedAt? } | существующее событие
 const props = defineProps({
-  model: { type: Object, default: null }
+  model: { type: Object, default: null },
+  // Ограничение списка типов в выпадашке (напр. только календарные)
+  types: { type: Array, default: null }
 })
 const emit = defineEmits(['close'])
+
+const typeOptions = computed(() => props.types || EVENT_TYPE_LIST)
 
 const events = useEventsStore()
 
@@ -91,7 +95,7 @@ async function remove() {
           <div v-if="form.isNew" class="field">
             <label>Тип события</label>
             <select v-model="form.type">
-              <option v-for="t in EVENT_TYPE_LIST" :key="t.id" :value="t.id">{{ t.icon }} {{ t.label }}</option>
+              <option v-for="t in typeOptions" :key="t.id" :value="t.id">{{ t.icon }} {{ t.label }}</option>
             </select>
           </div>
 

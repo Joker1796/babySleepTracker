@@ -218,10 +218,10 @@ function addEvent() {
     </div>
 
     <div class="card">
-      <TimelineDay :day-ts="dayTs" @edit="e => (sheetModel = e)" />
-      <button class="btn secondary block" style="margin-top: 10px" @click="addEvent">
+      <button class="btn secondary block" style="margin-bottom: 12px" @click="addEvent">
         + Добавить событие
       </button>
+      <TimelineDay :day-ts="dayTs" @edit="e => (sheetModel = e)" />
     </div>
 
     <!-- Расписание на завтра -->

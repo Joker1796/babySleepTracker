@@ -117,7 +117,7 @@ async function save() {
             :class="{ active: isEnabled(t.id) }"
             @click="toggleType(t.id)"
           >{{ t.icon }} {{ t.btnLabel || t.label }}</button>
-          <div v-if="isEnabled(t.id)" class="mb-modes">
+          <div v-if="isEnabled(t.id) && t.kind === 'interval'" class="mb-modes">
             <button class="chip sm" :class="{ active: modeOf(t.id) === 'time' }" @click="setMode(t.id, 'time')">Время</button>
             <button class="chip sm" :class="{ active: modeOf(t.id) === 'count' }" @click="setMode(t.id, 'count')">Кол-во</button>
           </div>

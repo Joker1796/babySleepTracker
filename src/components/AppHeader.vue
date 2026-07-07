@@ -8,6 +8,7 @@ const NAV_ITEMS = computed(() => {
   const base = [
     { to: '/', icon: '🏠', label: 'Сегодня' },
     { to: '/history', icon: '📅', label: 'История' },
+    { to: '/calendar', icon: '🗓️', label: 'Календарь' },
     { to: '/advice', icon: '💡', label: 'Советы' }
   ]
   if (children.activeChild?.regime?.mode === 'custom') {

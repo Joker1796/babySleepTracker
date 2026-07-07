@@ -7,15 +7,19 @@ import { useNow, simNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
 import { dayCount } from '../logic/eventStats'
-import { EVENT_TYPES, resolveButtons } from '../data/eventTypes'
+import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, getMainButtons } from '../data/eventTypes'
 
 const emit = defineEmits(['logged', 'edit'])
 const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
 
-// Кнопки главного экрана: авто-кормление по типу ГВ/ИВ + настроенные [{ type, mode }]
-const mainButtons = computed(() => resolveButtons(children.activeChild))
+// Кнопки главного экрана — только выбранные в настройках (фильтр отсекает
+// снятые с главного/удалённые типы у ранее сохранённых профилей)
+const mainIds = new Set(MAIN_BUTTON_TYPE_LIST.map(t => t.id))
+const mainButtons = computed(() =>
+  getMainButtons(children.activeChild).filter(b => mainIds.has(b.type))
+)
 
 function typeOf(type) {
   return EVENT_TYPES[type] || { label: type, icon: '❓', color: 'var(--c-text-soft)', softColor: 'var(--c-surface-2)' }

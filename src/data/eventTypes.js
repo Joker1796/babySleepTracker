@@ -121,15 +121,6 @@ export const EVENT_TYPES = {
     startLabel: 'Начали купание',
     endLabel: 'Закончили купание'
   },
-  wash: {
-    id: 'wash',
-    label: 'Умывание',
-    btnLabel: 'Умывание',
-    kind: 'point',
-    icon: '🧼',
-    color: 'var(--c-bath)',
-    softColor: 'var(--c-bath-soft)'
-  },
   diaper: {
     id: 'diaper',
     label: 'Смена памперса',
@@ -200,23 +191,36 @@ export const EVENT_TYPES = {
     softColor: 'var(--c-medicine-soft)',
     hasNote: true,
     notePlaceholder: 'Врач, причина, назначения'
+  },
+  vaccination: {
+    id: 'vaccination',
+    label: 'Прививка',
+    btnLabel: 'Прививка',
+    kind: 'point',
+    icon: '💉',
+    color: 'var(--c-urgent)',
+    softColor: 'var(--c-urgent-soft)',
+    hasNote: true,
+    notePlaceholder: 'Какая прививка'
   }
 }
 
 export const EVENT_TYPE_LIST = Object.values(EVENT_TYPES)
 
-// Типы кормления обрабатываются отдельно (авто по полю «Кормление»)
-export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula']
+// Календарные события: отмечаются датой и подсвечиваются во вкладке «Календарь»
+// (на главный экран не выносятся)
+export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine']
+export const CALENDAR_TYPE_LIST = CALENDAR_TYPE_IDS.map(id => EVENT_TYPES[id])
 
-// Типы, доступные в пикере «Кнопки на главном экране» (без сна и без кормления)
+// Типы, доступные в пикере «Кнопки на главном экране» (без сна и без календарных)
 export const MAIN_BUTTON_TYPE_LIST = EVENT_TYPE_LIST.filter(
-  t => t.id !== 'sleep' && !FEEDING_TYPE_IDS.includes(t.id)
+  t => t.id !== 'sleep' && !CALENDAR_TYPE_IDS.includes(t.id)
 )
 
 // Все события, кроме сна — для строк плашки «Истории» (в порядке реестра)
 export const NON_SLEEP_TYPE_LIST = EVENT_TYPE_LIST.filter(t => t.id !== 'sleep')
 
-// Набор кнопок по умолчанию (не считая авто-кнопок кормления)
+// Набор кнопок по умолчанию
 export const DEFAULT_MAIN_BUTTONS = [
   { type: 'tummy', mode: 'time' },
   { type: 'bath', mode: 'time' },
@@ -225,22 +229,6 @@ export const DEFAULT_MAIN_BUTTONS = [
 
 export function getMainButtons(child) {
   return Array.isArray(child?.mainButtons) ? child.mainButtons : DEFAULT_MAIN_BUTTONS
-}
-
-// Кнопки кормления по типу вскармливания ребёнка
-export function feedingButtons(feeding) {
-  const ids =
-    feeding === 'formula' ? ['feedFormula']
-      : feeding === 'mixed' ? ['feedLeft', 'feedRight', 'feedFormula']
-        : feeding === 'breast' ? ['feedLeft', 'feedRight']
-          : []
-  return ids.map(type => ({ type, mode: 'count' }))
-}
-
-// Итоговый список кнопок главного экрана: авто-кормление + настроенные
-export function resolveButtons(child) {
-  const configured = getMainButtons(child).filter(b => !FEEDING_TYPE_IDS.includes(b.type))
-  return [...feedingButtons(child?.feeding), ...configured]
 }
 
 // «Эффективный вид» события: сохранённый на записи kind, иначе — из реестра типов
