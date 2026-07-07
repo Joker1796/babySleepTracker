@@ -34,7 +34,8 @@ watch(() => props.model, m => {
     startedAt: tsToLocal(m.startedAt ?? simNow()),
     endedAt: tsToLocal(m.endedAt),
     hasEnd: m.endedAt != null,
-    note: m.note || ''
+    note: m.note || '',
+    amount: m.amount ?? null
   }
 }, { immediate: true })
 
@@ -63,7 +64,10 @@ async function save() {
   if (!startedAt) { error.value = 'Укажите время начала'; return }
   if (endedAt != null && endedAt <= startedAt) { error.value = 'Окончание должно быть позже начала'; return }
 
-  const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value }
+  const amount = typeDef.value.amountUnit && f.amount !== '' && f.amount != null
+    ? Number(f.amount)
+    : null
+  const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value, amount }
   if (f.isNew) await events.add(data)
   else await events.update({ ...props.model, ...data })
   emit('close')
@@ -106,6 +110,11 @@ async function remove() {
               <input v-model="form.endedAt" type="datetime-local" />
             </div>
           </template>
+
+          <div v-if="typeDef.amountUnit" class="field">
+            <label>Количество, {{ typeDef.amountUnit }}</label>
+            <input v-model="form.amount" type="number" step="0.1" min="0" inputmode="decimal" />
+          </div>
 
           <div class="field">
             <label>Заметка</label>

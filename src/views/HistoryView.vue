@@ -8,7 +8,7 @@ import { analyzeDay } from '../logic/sleepAnalyzer'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
 import { poopVerb } from '../logic/gender'
-import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, eventKind } from '../data/eventTypes'
+import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, eventKind } from '../data/eventTypes'
 import { getNorms } from '../data/sleepNorms'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 import TimelineDay from '../components/TimelineDay.vue'
@@ -36,18 +36,30 @@ const poopWord = computed(() => poopVerb(gender.value))
 
 // Строки плашки после четырёх постоянных: по типам событий, реально
 // отмеченным в этот день (независимо от текущих настроек кнопок).
-// Интервальные — суммарным временем, точечные — количеством.
+// Количество (мл) — суммой, температура (°C) — последним значением,
+// интервальные — суммарным временем, точечные — количеством.
+function countLabel(n) {
+  return `${n} ${plural(n, 'раз', 'раза', 'раз')}`
+}
 const otherStats = computed(() => {
   const d = dayjs(dayTs.value)
   const rows = []
-  for (const t of MAIN_BUTTON_TYPE_LIST) {
+  for (const t of NON_SLEEP_TYPE_LIST) {
     const evs = events.sorted.filter(e => e.type === t.id && dayjs(e.startedAt).isSame(d, 'day'))
     if (!evs.length) continue
-    const isInterval = evs.some(e => eventKind(e) === 'interval')
     const label = t.id === 'poop' ? poopWord.value : (t.btnLabel || t.label)
-    const value = isInterval
-      ? formatDurationMin(dayTotalMin(events.sorted, t.id, dayTs.value, now.value))
-      : (() => { const n = dayCount(events.sorted, t.id, dayTs.value); return `${n} ${plural(n, 'раз', 'раза', 'раз')}` })()
+    let value
+    if (t.amountUnit && t.amountAgg === 'sum') {
+      const sum = evs.reduce((s, e) => s + (Number(e.amount) || 0), 0)
+      value = `${sum} ${t.amountUnit}`
+    } else if (t.amountUnit && t.amountAgg === 'last') {
+      const withAmt = evs.filter(e => e.amount != null)
+      value = withAmt.length ? `${withAmt[withAmt.length - 1].amount} ${t.amountUnit}` : countLabel(evs.length)
+    } else if (evs.some(e => eventKind(e) === 'interval')) {
+      value = formatDurationMin(dayTotalMin(events.sorted, t.id, dayTs.value, now.value))
+    } else {
+      value = countLabel(dayCount(events.sorted, t.id, dayTs.value))
+    }
     rows.push({ id: t.id, icon: EVENT_TYPES[t.id].icon, label, value })
   }
   return rows
@@ -152,7 +164,13 @@ const timeTicks = [0, 6, 12, 18, 24]
 function openSchedule() {
   if (wakeStr.value == null) wakeStr.value = minToHHMM(profile.value.wakeMin)
   if (bedStr.value == null) bedStr.value = minToHHMM(profile.value.bedMin)
+  showStats.value = false
   showSchedule.value = true
+}
+
+function openStats() {
+  showSchedule.value = false
+  showStats.value = true
 }
 
 function addEvent() {
@@ -272,7 +290,7 @@ function addEvent() {
     </div>
 
     <!-- Статистика -->
-    <button v-if="!showStats" class="btn block schedule-open" @click="showStats = true">
+    <button v-if="!showStats" class="btn block schedule-open" @click="openStats">
       📊 Статистика
     </button>
 

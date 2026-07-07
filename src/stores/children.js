@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { db, uid } from '../db'
 import { ageInMonths } from '../logic/age'
 import { seedRegimeFromNorms } from '../data/regime'
+import { DEFAULT_MAIN_BUTTONS } from '../data/eventTypes'
 
 export const CHILD_COLORS = ['#7c6ff0', '#2f9e6e', '#d9598b', '#2492c9', '#d97706', '#8a5cd6']
 
@@ -21,7 +22,7 @@ export const useChildrenStore = defineStore('children', {
       this.children = await db.children.toArray()
       this.loaded = true
     },
-    async add({ name, birthDate, color, feeding, aids, gender }) {
+    async add({ name, birthDate, color, feeding, aids, gender, mainButtons, hideHints }) {
       const child = {
         id: uid(),
         name,
@@ -30,6 +31,8 @@ export const useChildrenStore = defineStore('children', {
         feeding: feeding || 'breast',
         aids: aids || [],
         gender: gender || null,
+        mainButtons: mainButtons || DEFAULT_MAIN_BUTTONS,
+        hideHints: hideHints || false,
         regime: { mode: 'auto' }
       }
       await db.children.put(child)

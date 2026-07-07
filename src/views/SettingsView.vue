@@ -96,21 +96,6 @@ async function onImportFile(e) {
     </div>
 
     <div class="card">
-      <div class="card-title">Подсказки</div>
-      <div class="row hint-row">
-        <div class="grow">
-          <b>Скрывать все подсказки</b>
-          <div class="muted small">Убирает приветствие, поддержку и карточки-подсказки на «Сегодня». Поздравления остаются.</div>
-        </div>
-        <button
-          class="chip"
-          :class="{ active: settings.hideHints }"
-          @click="settings.setHideHints(!settings.hideHints)"
-        >{{ settings.hideHints ? 'Скрыты' : 'Показаны' }}</button>
-      </div>
-    </div>
-
-    <div class="card">
       <div class="card-title">Данные</div>
       <p class="muted small">
         Все данные хранятся только на этом устройстве, в браузере. Делайте резервные копии,
@@ -168,9 +153,4 @@ async function onImportFile(e) {
 }
 
 .hidden-input { display: none; }
-
-.hint-row {
-  align-items: center;
-  gap: 12px;
-}
 </style>

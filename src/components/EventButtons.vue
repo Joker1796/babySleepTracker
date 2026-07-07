@@ -3,19 +3,19 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
-import { useNow } from '../composables/useNow'
+import { useNow, simNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
 import { dayCount } from '../logic/eventStats'
-import { EVENT_TYPES, getMainButtons } from '../data/eventTypes'
+import { EVENT_TYPES, resolveButtons } from '../data/eventTypes'
 
-const emit = defineEmits(['logged'])
+const emit = defineEmits(['logged', 'edit'])
 const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
 
-// Настроенные для ребёнка кнопки главного экрана: [{ type, mode }]
-const mainButtons = computed(() => getMainButtons(children.activeChild))
+// Кнопки главного экрана: авто-кормление по типу ГВ/ИВ + настроенные [{ type, mode }]
+const mainButtons = computed(() => resolveButtons(children.activeChild))
 
 function typeOf(type) {
   return EVENT_TYPES[type] || { label: type, icon: '❓', color: 'var(--c-text-soft)', softColor: 'var(--c-surface-2)' }
@@ -60,6 +60,11 @@ function btnStyle(b) {
 
 async function onClick(b) {
   const def = typeOf(b.type)
+  // Типы с числовым значением (смесь мл, температура °C) вводятся через форму события
+  if (def.amountUnit) {
+    emit('edit', { isNew: true, type: b.type, startedAt: simNow() })
+    return
+  }
   if (b.mode === 'time') {
     const open = events.openInterval(b.type)
     if (open) {

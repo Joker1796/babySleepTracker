@@ -4,7 +4,6 @@ import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
-import { useSettingsStore } from '../stores/settings'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
 import { formatDurationMin, plural } from '../logic/age'
@@ -13,14 +12,20 @@ import SleepButton from '../components/SleepButton.vue'
 import SettlingFlow from '../components/SettlingFlow.vue'
 import DayGreeting from '../components/DayGreeting.vue'
 import EventButtons from '../components/EventButtons.vue'
+import EventEditSheet from '../components/EventEditSheet.vue'
 import AdviceCard from '../components/AdviceCard.vue'
 import QuickTopics from '../components/QuickTopics.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
 const settling = useSettlingStore()
-const settings = useSettingsStore()
 const now = useNow()
+
+// «Скрывать подсказки» — свой флаг у активного ребёнка
+const hideHints = computed(() => !!children.activeChild?.hideHints)
+
+// Форма события для типов с количеством (смесь мл, температура °C)
+const sheetModel = ref(null)
 
 const toast = ref('')
 let toastTimer = null
@@ -107,7 +112,7 @@ const showSleepButton = computed(() =>
 )
 
 const showGreeting = computed(() =>
-  guidance.value?.greeting && !settings.hideHints
+  guidance.value?.greeting && !hideHints.value
 )
 
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
@@ -131,7 +136,7 @@ function extendNap() {
 const showMilestone = computed(() => !!guidance.value?.milestone)
 
 const showEncouragement = computed(() =>
-  guidance.value?.encouragement && !settings.hideHints
+  guidance.value?.encouragement && !hideHints.value
 )
 
 // Режим расчёта: 'auto' (наш движок по возрасту) или 'custom' (параметры родителя)
@@ -211,12 +216,12 @@ function toggleRegime() {
     </button>
 
     <SleepButton v-if="showSleepButton" />
-    <EventButtons @logged="showToast" />
+    <EventButtons @logged="showToast" @edit="e => (sheetModel = e)" />
 
     <!-- Чем заняться (активное бодрствование) — под кнопками активностей -->
     <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
-    <template v-if="!settings.hideHints && visibleAdvices.length">
+    <template v-if="!hideHints && visibleAdvices.length">
       <div class="card-title" style="margin-bottom: 6px">Ещё подсказки</div>
       <AdviceCard
         v-for="a in visibleAdvices"
@@ -232,6 +237,8 @@ function toggleRegime() {
     <Transition name="fade">
       <div v-if="toast" class="toast">{{ toast }}</div>
     </Transition>
+
+    <EventEditSheet :model="sheetModel" @close="sheetModel = null" />
   </div>
 </template>
 

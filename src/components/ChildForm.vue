@@ -20,6 +20,7 @@ const feeding = ref(props.child?.feeding || 'breast')
 const aids = ref([...(props.child?.aids || [])])
 // Кнопки главного экрана: [{ type, mode: 'time' | 'count' }]
 const mainButtons = ref(getMainButtons(props.child).map(b => ({ ...b })))
+const hideHints = ref(props.child?.hideHints || false)
 const error = ref('')
 
 const today = dayjs().format('YYYY-MM-DD')
@@ -61,7 +62,8 @@ async function save() {
     color: color.value,
     feeding: feeding.value,
     aids: [...aids.value],
-    mainButtons: mainButtons.value.map(b => ({ ...b }))
+    mainButtons: mainButtons.value.map(b => ({ ...b })),
+    hideHints: hideHints.value
   }
   if (props.child) {
     await store.update({ ...props.child, ...data })
@@ -137,6 +139,17 @@ async function save() {
       <p class="muted small hint">Подсказки будут учитывать выбранное — например, напомнят, когда пора уходить от пеленания.</p>
     </div>
     <div class="field">
+      <label>Подсказки</label>
+      <div class="row hint-row">
+        <div class="grow muted small">Скрывать приветствие, поддержку и карточки-подсказки на «Сегодня» для этого ребёнка. Поздравления остаются.</div>
+        <button
+          class="chip"
+          :class="{ active: hideHints }"
+          @click="hideHints = !hideHints"
+        >{{ hideHints ? 'Скрыты' : 'Показаны' }}</button>
+      </div>
+    </div>
+    <div class="field">
       <label>Цвет</label>
       <div class="colors">
         <button
@@ -170,6 +183,11 @@ async function save() {
 }
 
 .hint { margin-top: 6px; }
+
+.hint-row {
+  align-items: center;
+  gap: 12px;
+}
 
 /* Настройка кнопок главного экрана */
 .mb-list {

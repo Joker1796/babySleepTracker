@@ -51,6 +51,12 @@ function durLabel(e) {
   const end = e.endedAt ?? now.value
   return formatDurationMin((end - e.startedAt) / 60000)
 }
+
+// Числовое значение события (мл, °C), если задано
+function amountLabel(e) {
+  const unit = EVENT_TYPES[e.type]?.amountUnit
+  return unit != null && e.amount != null ? `${e.amount} ${unit}` : ''
+}
 </script>
 
 <template>
@@ -69,7 +75,7 @@ function durLabel(e) {
           {{ labelOf(e) }}
           <span v-if="e.endedAt == null && eventKind(e) === 'interval'" class="ongoing">идёт</span>
         </span>
-        <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template></span>
+        <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template><template v-if="amountLabel(e)"> · {{ amountLabel(e) }}</template></span>
         <span v-if="e.note" class="tl-note muted">{{ e.note }}</span>
       </span>
       <span v-if="editable" class="tl-chevron muted">›</span>
