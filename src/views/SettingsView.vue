@@ -61,10 +61,10 @@ async function onImportFile(e) {
             <b>{{ child.name }}</b>
             <div class="muted small">
               {{ formatAge(child.birthDate) }} · {{ child.birthDate }}
-              <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).icon }} {{ getFeeding(child.feeding).short }}</template>
+              <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).short }}</template>
             </div>
             <div v-if="child.aids?.length" class="muted small aids">
-              {{ child.aids.map(id => getAid(id)?.icon).filter(Boolean).join(' ') }}
+              {{ child.aids.map(id => getAid(id)?.label).filter(Boolean).join(', ') }}
             </div>
           </div>
           <button class="btn secondary sm" @click="editingChild = child">✏️</button>
@@ -95,6 +95,21 @@ async function onImportFile(e) {
           :class="{ active: settings.theme === t.id }"
           @click="settings.setTheme(t.id)"
         >{{ t.label }}</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Подсказки</div>
+      <div class="row hint-row">
+        <div class="grow">
+          <b>Скрывать все подсказки</b>
+          <div class="muted small">Убирает приветствие, поддержку и карточки-подсказки на «Сегодня». Поздравления остаются.</div>
+        </div>
+        <button
+          class="chip"
+          :class="{ active: settings.hideHints }"
+          @click="settings.setHideHints(!settings.hideHints)"
+        >{{ settings.hideHints ? 'Скрыты' : 'Показаны' }}</button>
       </div>
     </div>
 
@@ -149,4 +164,9 @@ async function onImportFile(e) {
 }
 
 .hidden-input { display: none; }
+
+.hint-row {
+  align-items: center;
+  gap: 12px;
+}
 </style>

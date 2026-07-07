@@ -1,21 +1,21 @@
 <script setup>
 import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
-import { useRouter } from 'vue-router'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow, simNow } from '../composables/useNow'
 import { analyzeDay } from '../logic/sleepAnalyzer'
-import { formatDurationMin, plural } from '../logic/age'
+import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
 import { poopVerb } from '../logic/gender'
+import { getNorms } from '../data/sleepNorms'
+import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 import TimelineDay from '../components/TimelineDay.vue'
 import EventEditSheet from '../components/EventEditSheet.vue'
 
 const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
-const router = useRouter()
 
 const dayOffset = ref(0)
 const sheetModel = ref(null)
@@ -36,8 +36,106 @@ const poopCount = computed(() => dayCount(events.sorted, 'poop', dayTs.value))
 const gender = computed(() => children.activeChild?.gender)
 const poopWord = computed(() => poopVerb(gender.value))
 
-function goSchedule() {
-  router.push({ name: 'stats', query: { schedule: '1' } })
+// ── Статистика за период ──
+const days = ref(7)
+const showStats = ref(false)
+
+const stats = computed(() => {
+  const result = []
+  for (let i = days.value - 1; i >= 0; i--) {
+    const ts = dayjs(now.value).startOf('day').subtract(i, 'day').valueOf()
+    result.push({ dayTs: ts, ...analyzeDay(events.sorted, ts, now.value) })
+  }
+  return result
+})
+
+const norms = computed(() => {
+  if (!children.activeChild) return null
+  return getNorms(ageInMonths(children.activeChild.birthDate, now.value))
+})
+
+// геометрия SVG-графика
+const W = 340
+const H = 190
+const PAD = { top: 8, right: 6, bottom: 22, left: 26 }
+const maxH = 20 // часов на шкале
+
+const chartW = W - PAD.left - PAD.right
+const chartH = H - PAD.top - PAD.bottom
+
+function y(hours) {
+  return PAD.top + chartH - (Math.min(hours, maxH) / maxH) * chartH
+}
+
+// Шаг подписей оси X: на длинных периодах показываем реже, чтобы не наложились
+const labelStep = computed(() => (days.value <= 7 ? 1 : days.value <= 14 ? 2 : 5))
+
+const bars = computed(() => {
+  const n = stats.value.length
+  const slot = chartW / n
+  const barW = Math.min(slot * 0.62, 30)
+  return stats.value.map((d, i) => {
+    const x = PAD.left + slot * i + (slot - barW) / 2
+    const nightH = d.nightSleepMin / 60
+    const dayH = d.daySleepMin / 60
+    return {
+      x,
+      barW,
+      nightY: y(nightH),
+      nightHpx: y(0) - y(nightH),
+      dayY: y(nightH + dayH),
+      dayHpx: y(nightH) - y(nightH + dayH),
+      label: dayjs(d.dayTs).format('D.MM'),
+      total: d.totalSleepMin
+    }
+  })
+})
+
+const gridLines = computed(() =>
+  [4, 8, 12, 16, 20].map(h => ({ h, y: y(h) }))
+)
+
+const avg = computed(() => {
+  const withData = stats.value.filter(d => d.totalSleepMin > 0)
+  if (!withData.length) return null
+  const total = withData.reduce((s, d) => s + d.totalSleepMin, 0) / withData.length
+  const day = withData.reduce((s, d) => s + d.daySleepMin, 0) / withData.length
+  const naps = withData.reduce((s, d) => s + d.napCount, 0) / withData.length
+  return { total, day, naps: Math.round(naps * 10) / 10, daysCounted: withData.length }
+})
+
+const avgVerdict = computed(() => {
+  if (!avg.value || !norms.value) return ''
+  const [min, max] = norms.value.totalSleep
+  if (avg.value.total < min - 30) return 'Суммарного сна в среднем меньше возрастной нормы — присмотритесь к подсказкам на главном экране.'
+  if (avg.value.total > max + 30) return 'Сна в среднем больше нормы — если малыш бодр и весел, для младенцев это обычно не проблема.'
+  return 'Суммарный сон в пределах возрастной нормы — отличная работа!'
+})
+
+// ── Расписание на завтра ──
+const showSchedule = ref(false)
+// Выбор начала/конца дня (строки HH:MM). null → берётся из профиля.
+const wakeStr = ref(null)
+const bedStr = ref(null)
+
+const profile = computed(() =>
+  scheduleProfile(events.sorted, now.value, days.value, children.activeChild)
+)
+
+const schedule = computed(() =>
+  buildSchedule(profile.value, {
+    wakeMin: hhmmToMin(wakeStr.value),
+    bedMin: hhmmToMin(bedStr.value)
+  })
+)
+
+// Засечки времени на 24-часовой полосе
+const timeTicks = [0, 6, 12, 18, 24]
+
+function openSchedule() {
+  if (wakeStr.value == null) wakeStr.value = minToHHMM(profile.value.wakeMin)
+  if (bedStr.value == null) bedStr.value = minToHHMM(profile.value.bedMin)
+  showSchedule.value = true
 }
 
 function addEvent() {
@@ -74,6 +172,10 @@ function addEvent() {
           <span class="rep-value">{{ formatDurationMin(summary.daySleepMin) }} · {{ summary.napCount }} {{ plural(summary.napCount, 'сон', 'сна', 'снов') }}</span>
         </div>
         <div class="rep-row">
+          <span class="rep-label">Среднее бодрствование</span>
+          <span class="rep-value">{{ summary.wakeWindowMin > 0 ? formatDurationMin(summary.wakeWindowMin) : '—' }}</span>
+        </div>
+        <div class="rep-row">
           <span class="rep-label">👶 На животе</span>
           <span class="rep-value">{{ tummyMin > 0 ? formatDurationMin(tummyMin) : '—' }}</span>
         </div>
@@ -82,9 +184,6 @@ function addEvent() {
           <span class="rep-value">{{ poopCount }} {{ plural(poopCount, 'раз', 'раза', 'раз') }}</span>
         </div>
       </div>
-      <button class="btn secondary block schedule-btn" @click="goSchedule">
-        🗓️ Построить расписание на завтра
-      </button>
     </div>
 
     <div class="card">
@@ -93,6 +192,125 @@ function addEvent() {
         + Добавить событие
       </button>
     </div>
+
+    <!-- Расписание на завтра -->
+    <button v-if="!showSchedule" class="btn block schedule-open" @click="openSchedule">
+      🗓️ Построить расписание на завтра
+    </button>
+
+    <div v-if="showSchedule" class="card schedule">
+      <div class="card-title">Примерный распорядок на завтра</div>
+      <p class="muted small src-note">
+        {{ schedule.source === 'history'
+          ? `На основе средних за ${schedule.daysCounted} ${plural(schedule.daysCounted, 'день', 'дня', 'дней')} с данными`
+          : 'По возрастным нормам — данных о сне пока мало' }}
+      </p>
+
+      <div class="day-bounds">
+        <label class="bound">
+          <span>Начало дня</span>
+          <input v-model="wakeStr" type="time" />
+        </label>
+        <label class="bound">
+          <span>Конец дня</span>
+          <input v-model="bedStr" type="time" />
+        </label>
+      </div>
+
+      <!-- 24-часовая полоса -->
+      <div class="tl-wrap">
+        <div class="tl-bar">
+          <div
+            v-for="(s, i) in schedule.segments"
+            :key="i"
+            class="tl-seg"
+            :class="s.type"
+            :style="{ left: `${(s.from / 1440) * 100}%`, width: `${((s.to - s.from) / 1440) * 100}%` }"
+          ></div>
+        </div>
+        <div class="tl-ticks">
+          <span v-for="t in timeTicks" :key="t" :style="{ left: `${(t / 24) * 100}%` }">{{ t }}</span>
+        </div>
+      </div>
+
+      <div class="sched-list">
+        <div class="sched-row">
+          <span class="sr-ico">☀️</span>
+          <span class="sr-label">Подъём</span>
+          <span class="sr-time">{{ schedule.wake.hhmm }}</span>
+        </div>
+        <template v-for="(nap, i) in schedule.naps" :key="i">
+          <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
+          <div class="sched-row">
+            <span class="sr-ico">😴</span>
+            <span class="sr-label">Сон {{ i + 1 }} <span class="muted small">· {{ formatDurationMin(nap.durMin) }}</span></span>
+            <span class="sr-time">{{ nap.startHHMM }}–{{ nap.endHHMM }}</span>
+          </div>
+        </template>
+        <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
+        <div class="sched-row night">
+          <span class="sr-ico">🌙</span>
+          <span class="sr-label">Ночной сон</span>
+          <span class="sr-time">{{ schedule.bedtime.hhmm }}</span>
+        </div>
+      </div>
+
+      <p class="muted small" style="margin-top: 10px">Ориентир по средним, а не жёсткое правило — подстраивайте под признаки усталости малыша.</p>
+    </div>
+
+    <!-- Статистика -->
+    <button v-if="!showStats" class="btn block schedule-open" @click="showStats = true">
+      📊 Статистика
+    </button>
+
+    <template v-if="showStats">
+      <div class="row" style="margin-bottom: 12px">
+        <select v-model.number="days" class="period-select">
+          <option :value="7">7 дней</option>
+          <option :value="14">14 дней</option>
+          <option :value="30">Месяц</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Сон по дням, часы</div>
+        <svg :viewBox="`0 0 ${W} ${H}`" class="chart">
+          <g v-for="line in gridLines" :key="line.h">
+            <line :x1="PAD.left" :x2="W - PAD.right" :y1="line.y" :y2="line.y" class="grid" />
+            <text :x="PAD.left - 5" :y="line.y + 3" class="axis">{{ line.h }}</text>
+          </g>
+
+          <template v-if="norms">
+            <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[0] / 60)" :y2="y(norms.totalSleep[0] / 60)" class="norm" />
+            <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[1] / 60)" :y2="y(norms.totalSleep[1] / 60)" class="norm" />
+          </template>
+
+          <g v-for="(b, i) in bars" :key="i">
+            <rect :x="b.x" :y="b.nightY" :width="b.barW" :height="b.nightHpx" rx="3" fill="var(--c-night-bar)" />
+            <rect :x="b.x" :y="b.dayY" :width="b.barW" :height="b.dayHpx" rx="3" fill="var(--c-day-bar)" />
+            <text v-if="i % labelStep === 0" :x="b.x + b.barW / 2" :y="H - 8" class="axis" text-anchor="middle">{{ b.label }}</text>
+          </g>
+        </svg>
+        <div class="legend">
+          <span class="leg-item"><span class="leg-dot" style="background: var(--c-night-bar)"></span>ночь</span>
+          <span class="leg-item"><span class="leg-dot" style="background: var(--c-day-bar)"></span>день</span>
+          <span class="leg-item"><span class="leg-line"></span>норма</span>
+        </div>
+      </div>
+
+      <div v-if="avg" class="card">
+        <div class="card-title">В среднем за {{ avg.daysCounted }} дн. с данными</div>
+        <div class="avg-row"><span>Всего сна в сутки</span><b>{{ formatDurationMin(avg.total) }}</b></div>
+        <div class="avg-row"><span>Дневной сон</span><b>{{ formatDurationMin(avg.day) }}</b></div>
+        <div class="avg-row"><span>Дневных снов</span><b>{{ avg.naps }}</b></div>
+        <div v-if="norms" class="avg-row"><span>Норма всего</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
+        <p class="muted small" style="margin-top: 8px">{{ avgVerdict }}</p>
+      </div>
+
+      <p v-else class="muted small" style="text-align: center">
+        Пока нет данных — отмечайте сон на главном экране, и здесь появится картина недели.
+      </p>
+    </template>
 
     <EventEditSheet :model="sheetModel" @close="sheetModel = null" />
   </div>
@@ -143,7 +361,190 @@ function addEvent() {
 .rep-label { color: var(--c-text-soft); }
 .rep-value { font-weight: 700; }
 
-.schedule-btn {
-  margin-top: 12px;
+/* ── Выбор периода статистики ── */
+.period-select {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── График статистики ── */
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+.grid {
+  stroke: var(--c-border);
+  stroke-width: 1;
+}
+
+.norm {
+  stroke: var(--c-warn);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.8;
+}
+
+.axis {
+  font-size: 9px;
+  fill: var(--c-text-soft);
+  text-anchor: end;
+}
+
+text.axis[text-anchor='middle'] { text-anchor: middle; }
+
+.legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--c-text-soft);
+}
+
+.leg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.leg-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.leg-line {
+  width: 16px;
+  border-top: 2px dashed var(--c-warn);
+}
+
+.avg-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+/* ── Расписание на завтра ── */
+.schedule-open {
+  margin-bottom: 12px;
+}
+
+.src-note {
+  margin: -4px 0 12px;
+}
+
+.day-bounds {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bound {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bound span {
+  font-size: 13px;
+  color: var(--c-text-soft);
+}
+
+.bound input {
+  width: 100%;
+}
+
+/* 24-часовая полоса */
+.tl-wrap {
+  margin-bottom: 14px;
+}
+
+.tl-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--c-surface-2);
+  overflow: hidden;
+}
+
+.tl-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.tl-seg.night { background: var(--c-night-bar); }
+.tl-seg.day { background: var(--c-day-bar); }
+
+.tl-ticks {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+}
+
+.tl-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: var(--c-text-soft);
+}
+
+.tl-ticks span:first-child { transform: none; }
+.tl-ticks span:last-child { transform: translateX(-100%); }
+
+.sched-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-2);
+}
+
+.sched-row.night {
+  background: var(--c-primary-soft);
+}
+
+.sr-ico { font-size: 18px; }
+
+.sr-label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sr-time {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sched-gap {
+  padding: 3px 0 3px 40px;
+  position: relative;
+}
+
+.sched-gap::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-border);
 }
 </style>

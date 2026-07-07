@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
+import { useSettingsStore } from '../stores/settings'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
 import { formatDurationMin, plural } from '../logic/age'
@@ -18,6 +19,7 @@ import QuickTopics from '../components/QuickTopics.vue'
 const children = useChildrenStore()
 const events = useEventsStore()
 const settling = useSettlingStore()
+const settings = useSettingsStore()
 const now = useNow()
 
 const toast = ref('')
@@ -105,21 +107,15 @@ const showSleepButton = computed(() =>
 )
 
 const showGreeting = computed(() =>
-  guidance.value?.greeting && !settling.isGreetingDismissed(children.activeChild?.id)
+  guidance.value?.greeting && !settings.hideHints
 )
 
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
 // они доступны в разделе «Советы». Оставляем только ситуативные.
 const secondaryAdvices = computed(() => advice.value?.advices.filter(a => !a.general).slice(0, 4) || [])
 
-// Крестик закрывает конкретную подсказку из профиля (соска, укачивание, пеленание и т.п.)
-// до конца дня. Ситуативные подсказки (перегул, пора спать) остаются всегда.
-const visibleAdvices = computed(() =>
-  secondaryAdvices.value.filter(a => !a.profile || !settling.isAdviceDismissed(children.activeChild?.id, a.id))
-)
-function dismissAdvice(id) {
-  settling.dismissAdvice(children.activeChild?.id, id)
-}
+// Все подсказки можно скрыть глобально в настройках («Скрывать все подсказки»).
+const visibleAdvices = computed(() => secondaryAdvices.value)
 
 function showToast(msg) {
   toast.value = msg
@@ -127,28 +123,16 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toast.value = '' }, 2200)
 }
 
-function dismissGreeting() {
-  settling.dismissGreeting(children.activeChild?.id)
-}
-
 function extendNap() {
   settling.startExtension(children.activeChild?.id)
 }
 
-const showMilestone = computed(() =>
-  guidance.value?.milestone && !settling.isMilestoneDismissed(children.activeChild?.id)
-)
-function dismissMilestone() {
-  settling.dismissMilestone(children.activeChild?.id)
-}
+// Поздравление с месяцем/годом остаётся видимым независимо от «Скрывать подсказки».
+const showMilestone = computed(() => !!guidance.value?.milestone)
 
-// Поддержка для мамы — можно закрыть крестиком на день
 const showEncouragement = computed(() =>
-  guidance.value?.encouragement && !settling.isEncouragementDismissed(children.activeChild?.id)
+  guidance.value?.encouragement && !settings.hideHints
 )
-function dismissEncouragement() {
-  settling.dismissEncouragement(children.activeChild?.id)
-}
 
 // Режим расчёта: 'auto' (наш движок по возрасту) или 'custom' (параметры родителя)
 const regimeMode = computed(() => children.activeChild?.regime?.mode || 'auto')
@@ -165,12 +149,11 @@ function toggleRegime() {
 
     <!-- Поздравление с новым месяцем/годом -->
     <div v-if="showMilestone" class="card milestone">
-      <button class="ms-close" @click="dismissMilestone" aria-label="Скрыть">×</button>
       <span class="ms-icon">{{ guidance.milestone.isYear ? '🎂' : '🎉' }}</span>
       <p>{{ guidance.milestone.text }}</p>
     </div>
 
-    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @dismiss="dismissGreeting" />
+    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" />
 
     <div v-if="advice" class="card status-card">
       <div class="row">
@@ -215,7 +198,6 @@ function toggleRegime() {
 
     <!-- Поддержка для мамы -->
     <div v-if="showEncouragement" class="card support">
-      <button class="support-close" @click="dismissEncouragement" aria-label="Скрыть">×</button>
       <span class="support-icon">💛</span>
       <p>{{ guidance.encouragement.text }}</p>
     </div>
@@ -234,14 +216,12 @@ function toggleRegime() {
     <!-- Чем заняться (активное бодрствование) — под кнопками активностей -->
     <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
-    <template v-if="visibleAdvices.length">
+    <template v-if="!settings.hideHints && visibleAdvices.length">
       <div class="card-title" style="margin-bottom: 6px">Ещё подсказки</div>
       <AdviceCard
         v-for="a in visibleAdvices"
         :key="a.id"
         :advice="a"
-        :dismissible="a.profile"
-        @dismiss="dismissAdvice(a.id)"
       />
     </template>
 
@@ -353,25 +333,10 @@ function toggleRegime() {
 .trophy p, .support p { margin: 0; font-size: 14px; }
 
 .support {
-  position: relative;
   background: var(--c-medicine-soft);
 }
 
-.support p { padding-right: 24px; }
-
-.support-close {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  width: 30px;
-  height: 30px;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--c-text-soft);
-}
-
 .milestone {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -386,18 +351,6 @@ function toggleRegime() {
   font-size: 16px;
   font-weight: 700;
 }
-
-.ms-close {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--c-text-soft);
-}
-
 
 .toast {
   position: fixed;

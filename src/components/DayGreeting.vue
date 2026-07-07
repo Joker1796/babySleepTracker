@@ -2,12 +2,10 @@
 defineProps({
   greeting: { type: Object, required: true }
 })
-const emit = defineEmits(['dismiss'])
 </script>
 
 <template>
   <div class="card greeting">
-    <button class="close" @click="emit('dismiss')" aria-label="Скрыть">×</button>
     <div class="greet-head">
       <span class="greet-icon">☀️</span>
       <p class="greet-line">{{ greeting.line }}</p>
@@ -36,26 +34,13 @@ const emit = defineEmits(['dismiss'])
 
 <style scoped>
 .greeting {
-  position: relative;
   background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface));
-}
-
-.close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  font-size: 22px;
-  color: var(--c-text-soft);
-  line-height: 1;
 }
 
 .greet-head {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding-right: 24px;
 }
 
 .greet-icon { font-size: 26px; }

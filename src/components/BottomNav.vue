@@ -8,8 +8,7 @@ const items = computed(() => {
   const base = [
     { to: '/', icon: '🏠', label: 'Сегодня' },
     { to: '/history', icon: '📅', label: 'История' },
-    { to: '/advice', icon: '💡', label: 'Советы' },
-    { to: '/stats', icon: '📊', label: 'Стат.' }
+    { to: '/advice', icon: '💡', label: 'Советы' }
   ]
   // Вкладка «Режим» — только когда включён настраиваемый режим
   if (children.activeChild?.regime?.mode === 'custom') {

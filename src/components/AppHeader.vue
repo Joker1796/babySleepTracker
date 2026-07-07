@@ -8,8 +8,7 @@ const NAV_ITEMS = computed(() => {
   const base = [
     { to: '/', icon: '🏠', label: 'Сегодня' },
     { to: '/history', icon: '📅', label: 'История' },
-    { to: '/advice', icon: '💡', label: 'Советы' },
-    { to: '/stats', icon: '📊', label: 'Статистика' }
+    { to: '/advice', icon: '💡', label: 'Советы' }
   ]
   if (children.activeChild?.regime?.mode === 'custom') {
     base.push({ to: '/regime', icon: '🎛️', label: 'Мой режим' })
