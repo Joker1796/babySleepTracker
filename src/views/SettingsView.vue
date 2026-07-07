@@ -3,8 +3,6 @@ import { ref } from 'vue'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettingsStore } from '../stores/settings'
-import { formatAge } from '../logic/age'
-import { getFeeding, getAid } from '../data/childOptions'
 import { exportBackup, importBackup } from '../utils/backup'
 import ChildForm from '../components/ChildForm.vue'
 
@@ -26,6 +24,11 @@ async function removeChild(child) {
   if (!confirm(`Удалить профиль «${child.name}» и все его события? Это действие необратимо.`)) return
   await children.remove(child.id)
   if (children.activeChild) await events.load(children.activeChild.id)
+}
+
+async function onDelete(child) {
+  await removeChild(child)
+  editingChild.value = null
 }
 
 function onSaved() {
@@ -55,23 +58,17 @@ async function onImportFile(e) {
     <div class="card">
       <div class="card-title">Дети</div>
       <div v-for="child in children.children" :key="child.id">
-        <div v-if="editingChild !== child" class="row child-row">
-          <span class="dot" :style="{ background: child.color }"></span>
-          <div class="grow">
-            <b>{{ child.name }}</b>
-            <div class="muted small">
-              {{ formatAge(child.birthDate) }} · {{ child.birthDate }}
-              <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).short }}</template>
-            </div>
-            <div v-if="child.aids?.length" class="muted small aids">
-              {{ child.aids.map(id => getAid(id)?.label).filter(Boolean).join(', ') }}
-            </div>
-          </div>
-          <button class="btn secondary sm" @click="editingChild = child">✏️</button>
-          <button class="btn danger sm" @click="removeChild(child)">🗑</button>
-        </div>
+        <button
+          v-if="editingChild !== child"
+          class="child-btn"
+          :style="{ borderLeftColor: child.color, background: child.color + '1f' }"
+          @click="editingChild = child"
+        >
+          <span class="child-name">{{ child.name }}</span>
+          <span class="chev">›</span>
+        </button>
         <div v-else class="edit-box">
-          <ChildForm :child="child" @saved="onSaved" @cancel="editingChild = null" />
+          <ChildForm :child="child" @saved="onSaved" @cancel="editingChild = null" @delete="onDelete(child)" />
         </div>
       </div>
 
@@ -139,23 +136,30 @@ async function onImportFile(e) {
 </template>
 
 <style scoped>
-.child-row {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--c-border);
+.child-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  margin-bottom: 8px;
+  min-height: 52px;
+  border: 1px solid var(--c-border);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
 }
 
-.child-row:last-child { border-bottom: none; }
-
-.dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.child-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 15px;
 }
 
-.btn.sm {
-  min-height: 40px;
-  padding: 6px 10px;
+.chev {
+  color: var(--c-text-soft);
+  font-size: 20px;
+  line-height: 1;
 }
 
 .edit-box {

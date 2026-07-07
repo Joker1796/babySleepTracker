@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
-import { EVENT_TYPES } from '../data/eventTypes'
+import { EVENT_TYPES, eventKind } from '../data/eventTypes'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
 
@@ -29,7 +29,7 @@ const dayEvents = computed(() => {
   const to = dayjs(props.dayTs).endOf('day').valueOf()
   return events.sorted
     .filter(e => {
-      const end = e.endedAt ?? (EVENT_TYPES[e.type]?.kind === 'interval' ? now.value : e.startedAt)
+      const end = e.endedAt ?? (eventKind(e) === 'interval' ? now.value : e.startedAt)
       return e.startedAt <= to && end >= from
     })
     .reverse()
@@ -41,13 +41,13 @@ function typeOf(e) {
 
 function timeLabel(e) {
   const start = dayjs(e.startedAt).format('HH:mm')
-  if (typeOf(e).kind !== 'interval') return start
+  if (eventKind(e) !== 'interval') return start
   if (e.endedAt == null) return `${start} → сейчас`
   return `${start} – ${dayjs(e.endedAt).format('HH:mm')}`
 }
 
 function durLabel(e) {
-  if (typeOf(e).kind !== 'interval') return ''
+  if (eventKind(e) !== 'interval') return ''
   const end = e.endedAt ?? now.value
   return formatDurationMin((end - e.startedAt) / 60000)
 }
@@ -67,7 +67,7 @@ function durLabel(e) {
       <span class="grow tl-body">
         <span class="tl-title">
           {{ labelOf(e) }}
-          <span v-if="e.endedAt == null && typeOf(e).kind === 'interval'" class="ongoing">идёт</span>
+          <span v-if="e.endedAt == null && eventKind(e) === 'interval'" class="ongoing">идёт</span>
         </span>
         <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template></span>
         <span v-if="e.note" class="tl-note muted">{{ e.note }}</span>

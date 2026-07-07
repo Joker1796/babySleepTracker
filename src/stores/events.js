@@ -47,13 +47,13 @@ export const useEventsStore = defineStore('events', {
       // уже открыт — не создаём второй, возвращаем существующий.
       const open = this.openInterval(type)
       if (open) return open
-      return this.add({ type, startedAt: at, endedAt: null })
+      return this.add({ type, startedAt: at, endedAt: null, kind: 'interval' })
     },
     async endInterval(event, at = simNow()) {
       return this.update({ ...event, endedAt: at })
     },
     async addPoint(type, at = simNow(), note = '') {
-      return this.add({ type, startedAt: at, endedAt: null, note })
+      return this.add({ type, startedAt: at, endedAt: null, note, kind: 'point' })
     }
   }
 })

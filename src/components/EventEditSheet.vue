@@ -3,7 +3,7 @@ import { ref, watch, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { simNow } from '../composables/useNow'
-import { EVENT_TYPES, EVENT_TYPE_LIST } from '../data/eventTypes'
+import { EVENT_TYPES, EVENT_TYPE_LIST, eventKind } from '../data/eventTypes'
 
 // model: null (закрыт) | { isNew: true, type?, startedAt? } | существующее событие
 const props = defineProps({
@@ -30,6 +30,7 @@ watch(() => props.model, m => {
     isNew: !!m.isNew,
     id: m.id || null,
     type: m.type || 'sleep',
+    kind: m.isNew ? null : eventKind(m),
     startedAt: tsToLocal(m.startedAt ?? simNow()),
     endedAt: tsToLocal(m.endedAt),
     hasEnd: m.endedAt != null,
@@ -38,6 +39,14 @@ watch(() => props.model, m => {
 }, { immediate: true })
 
 const typeDef = computed(() => EVENT_TYPES[form.value?.type] || EVENT_TYPES.sleep)
+
+// «Вид» события: у новых — из реестра по выбранному типу (реагирует на смену
+// типа в списке), у существующих — сохранённый на записи.
+const kind = computed(() => {
+  if (!form.value) return 'interval'
+  if (form.value.isNew) return typeDef.value.kind
+  return form.value.kind ?? typeDef.value.kind
+})
 
 // При отметке «уже закончилось» сразу подставляем текущий день и время,
 // чтобы не заполнять поле окончания с нуля.
@@ -50,11 +59,11 @@ function onToggleEnd() {
 async function save() {
   const f = form.value
   const startedAt = localToTs(f.startedAt)
-  const endedAt = typeDef.value.kind === 'interval' && f.hasEnd ? localToTs(f.endedAt) : null
+  const endedAt = kind.value === 'interval' && f.hasEnd ? localToTs(f.endedAt) : null
   if (!startedAt) { error.value = 'Укажите время начала'; return }
   if (endedAt != null && endedAt <= startedAt) { error.value = 'Окончание должно быть позже начала'; return }
 
-  const data = { type: f.type, startedAt, endedAt, note: f.note.trim() }
+  const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value }
   if (f.isNew) await events.add(data)
   else await events.update({ ...props.model, ...data })
   emit('close')
@@ -83,11 +92,11 @@ async function remove() {
           </div>
 
           <div class="field">
-            <label>{{ typeDef.kind === 'interval' ? 'Начало' : 'Время' }}</label>
+            <label>{{ kind === 'interval' ? 'Начало' : 'Время' }}</label>
             <input v-model="form.startedAt" type="datetime-local" />
           </div>
 
-          <template v-if="typeDef.kind === 'interval'">
+          <template v-if="kind === 'interval'">
             <div class="field row check-row">
               <input id="hasEnd" v-model="form.hasEnd" type="checkbox" class="checkbox" @change="onToggleEnd" />
               <label for="hasEnd" class="check-label">Уже закончилось</label>

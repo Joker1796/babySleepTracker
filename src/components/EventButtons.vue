@@ -5,57 +5,77 @@ import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
+import { EVENT_TYPES, getMainButtons } from '../data/eventTypes'
 
 const emit = defineEmits(['logged'])
 const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
 
-// «Покакал/Покакала» — по полу ребёнка из профиля
-const poopWord = computed(() => poopVerb(children.activeChild?.gender))
+// Настроенные для ребёнка кнопки главного экрана: [{ type, mode }]
+const mainButtons = computed(() => getMainButtons(children.activeChild))
 
-const tummy = computed(() => events.openInterval('tummy'))
-const bath = computed(() => events.openInterval('bath'))
+function typeOf(type) {
+  return EVENT_TYPES[type] || { label: type, icon: '❓', color: 'var(--c-text-soft)', softColor: 'var(--c-surface-2)' }
+}
+
+// Открытый (идущий) интервал этого типа, если кнопка в режиме времени
+function openOf(b) {
+  return b.mode === 'time' ? events.openInterval(b.type) : null
+}
 
 function elapsed(ev) {
   return formatDurationMin((now.value - ev.startedAt) / 60000)
 }
 
-async function toggleInterval(type, active, startMsg, endMsg) {
-  if (active.value) {
-    await events.endInterval(active.value)
-    emit('logged', endMsg)
-  } else {
-    await events.startInterval(type)
-    emit('logged', startMsg)
+function labelOf(b) {
+  const def = typeOf(b.type)
+  const open = openOf(b)
+  if (open) return `${def.activeLabel || def.btnLabel || def.label} ${elapsed(open)}`
+  if (b.type === 'poop') return poopVerb(children.activeChild?.gender)
+  return def.btnLabel || def.label
+}
+
+function btnStyle(b) {
+  const def = typeOf(b.type)
+  const on = !!openOf(b)
+  return {
+    color: def.color,
+    background: on ? def.softColor : undefined,
+    outline: on ? `1.5px solid ${def.color}` : undefined
   }
 }
 
-function toggleTummy() {
-  toggleInterval('tummy', tummy, 'Выкладывание началось', 'Выкладывание завершено')
-}
-function toggleBath() {
-  toggleInterval('bath', bath, 'Купание началось', 'Купание завершено')
-}
-async function logPoop() {
-  await events.addPoint('poop')
-  emit('logged', 'Отмечено 💩')
+async function onClick(b) {
+  const def = typeOf(b.type)
+  if (b.mode === 'time') {
+    const open = events.openInterval(b.type)
+    if (open) {
+      await events.endInterval(open)
+      emit('logged', `Закончили: ${def.btnLabel || def.label}`)
+    } else {
+      await events.startInterval(b.type)
+      emit('logged', `Начали: ${def.btnLabel || def.label}`)
+    }
+  } else {
+    await events.addPoint(b.type)
+    emit('logged', `Отмечено ${def.icon}`)
+  }
 }
 </script>
 
 <template>
   <div class="event-btns">
-    <button class="ev-btn tummy" :class="{ on: tummy }" @click="toggleTummy">
-      <span class="ev-icon">👶</span>
-      <span>{{ tummy ? `Живот ${elapsed(tummy)}` : 'Выкладывание' }}</span>
-    </button>
-    <button class="ev-btn bath" :class="{ on: bath }" @click="toggleBath">
-      <span class="ev-icon">🛁</span>
-      <span>{{ bath ? `Купаемся ${elapsed(bath)}` : 'Купание' }}</span>
-    </button>
-    <button class="ev-btn poop" @click="logPoop">
-      <span class="ev-icon">💩</span>
-      <span>{{ poopWord }}</span>
+    <button
+      v-for="b in mainButtons"
+      :key="b.type"
+      class="ev-btn"
+      :class="{ on: !!openOf(b) }"
+      :style="btnStyle(b)"
+      @click="onClick(b)"
+    >
+      <span class="ev-icon">{{ typeOf(b.type).icon }}</span>
+      <span>{{ labelOf(b) }}</span>
     </button>
   </div>
 </template>
@@ -86,10 +106,4 @@ async function logPoop() {
 .ev-btn:active { opacity: 0.75; }
 
 .ev-icon { font-size: 22px; }
-
-.tummy { color: var(--c-primary); }
-.tummy.on { background: var(--c-primary-soft); outline: 1.5px solid var(--c-primary); }
-.bath { color: var(--c-bath); }
-.bath.on { background: var(--c-bath-soft); outline: 1.5px solid var(--c-bath); }
-.poop { color: var(--c-walk); }
 </style>
