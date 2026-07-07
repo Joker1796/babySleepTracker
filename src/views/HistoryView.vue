@@ -65,6 +65,9 @@ const otherStats = computed(() => {
   return rows
 })
 
+// Аккордеон верхней плашки-сводки
+const showSummary = ref(true)
+
 // ── Статистика за период ──
 const days = ref(7)
 const showStats = ref(false)
@@ -193,7 +196,14 @@ function addEvent() {
     </div>
 
     <div class="card summary">
-      <div class="report">
+      <button class="summary-head" @click="showSummary = !showSummary">
+        <span class="grow">
+          <b>Сводка за день</b>
+          <span class="muted small"> · {{ formatDurationMin(summary.totalSleepMin) }} сна</span>
+        </span>
+        <span class="chev" :class="{ open: showSummary }">›</span>
+      </button>
+      <div v-if="showSummary" class="report">
         <div class="rep-row">
           <span class="rep-label">Всего сна</span>
           <span class="rep-value">{{ formatDurationMin(summary.totalSleepMin) }}</span>
@@ -378,10 +388,29 @@ function addEvent() {
   opacity: 0.35;
 }
 
+.summary-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font-size: 15px;
+}
+
+.summary-head .chev {
+  color: var(--c-text-soft);
+  font-size: 22px;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+.summary-head .chev.open { transform: rotate(90deg); }
+
 .report {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  margin-top: 10px;
 }
 
 .rep-row {

@@ -7,7 +7,7 @@ import { useNow, simNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
 import { dayCount } from '../logic/eventStats'
-import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, getMainButtons } from '../data/eventTypes'
+import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, FEEDING_TYPE_IDS, getMainButtons } from '../data/eventTypes'
 
 const emit = defineEmits(['logged', 'edit'])
 const events = useEventsStore()
@@ -15,11 +15,16 @@ const children = useChildrenStore()
 const now = useNow()
 
 // Кнопки главного экрана — только выбранные в настройках (фильтр отсекает
-// снятые с главного/удалённые типы у ранее сохранённых профилей)
+// снятые с главного/удалённые типы у ранее сохранённых профилей).
+// Кормление (если выбрано) всегда идёт первым, в порядке Левая/Правая/Смесь.
 const mainIds = new Set(MAIN_BUTTON_TYPE_LIST.map(t => t.id))
-const mainButtons = computed(() =>
-  getMainButtons(children.activeChild).filter(b => mainIds.has(b.type))
-)
+const feedingSet = new Set(FEEDING_TYPE_IDS)
+const mainButtons = computed(() => {
+  const list = getMainButtons(children.activeChild).filter(b => mainIds.has(b.type))
+  const feeds = FEEDING_TYPE_IDS.map(id => list.find(b => b.type === id)).filter(Boolean)
+  const rest = list.filter(b => !feedingSet.has(b.type))
+  return [...feeds, ...rest]
+})
 
 function typeOf(type) {
   return EVENT_TYPES[type] || { label: type, icon: '❓', color: 'var(--c-text-soft)', softColor: 'var(--c-surface-2)' }
