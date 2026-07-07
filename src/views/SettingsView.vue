@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettingsStore } from '../stores/settings'
@@ -10,7 +10,8 @@ const children = useChildrenStore()
 const events = useEventsStore()
 const settings = useSettingsStore()
 
-const editingChild = ref(null) // null | 'new' | объект ребёнка
+const tab = ref(null)   // child.id | 'new' | null (авто → первый ребёнок)
+const formKey = ref(0)  // ремоунт формы: смена вкладки / сброс правок
 const fileInput = ref(null)
 const message = ref('')
 
@@ -20,6 +21,16 @@ const themes = [
   { id: 'dark', label: 'Тёмная' }
 ]
 
+const showNew = computed(() => tab.value === 'new' || children.children.length === 0)
+const selectedChild = computed(() =>
+  children.children.find(c => c.id === tab.value) || children.children[0] || null
+)
+
+function tabStyle(child) {
+  const active = !showNew.value && selectedChild.value?.id === child.id
+  return active ? { background: child.color, borderColor: child.color, color: '#fff' } : {}
+}
+
 async function removeChild(child) {
   if (!confirm(`Удалить профиль «${child.name}» и все его события? Это действие необратимо.`)) return
   await children.remove(child.id)
@@ -28,11 +39,17 @@ async function removeChild(child) {
 
 async function onDelete(child) {
   await removeChild(child)
-  editingChild.value = null
+  tab.value = null
 }
 
 function onSaved() {
-  editingChild.value = null
+  if (tab.value === 'new') {
+    tab.value = children.children[children.children.length - 1]?.id ?? null
+  }
+}
+
+function onCancel() {
+  formKey.value++ // ремоунт → сброс несохранённых правок
 }
 
 async function onImportFile(e) {
@@ -57,29 +74,38 @@ async function onImportFile(e) {
 
     <div class="card">
       <div class="card-title">Дети</div>
-      <div v-for="child in children.children" :key="child.id">
+      <div class="tabs">
         <button
-          v-if="editingChild !== child"
-          class="child-btn"
-          :style="{ borderLeftColor: child.color, background: child.color + '1f' }"
-          @click="editingChild = child"
-        >
-          <span class="child-name">{{ child.name }}</span>
-          <span class="chev">›</span>
-        </button>
-        <div v-else class="edit-box">
-          <ChildForm :child="child" @saved="onSaved" @cancel="editingChild = null" @delete="onDelete(child)" />
-        </div>
+          v-for="child in children.children"
+          :key="child.id"
+          class="tab"
+          :class="{ active: !showNew && selectedChild?.id === child.id }"
+          :style="tabStyle(child)"
+          @click="tab = child.id"
+        >{{ child.name }}</button>
+        <button class="tab tab-add" :class="{ active: showNew }" @click="tab = 'new'">＋</button>
       </div>
 
-      <div v-if="editingChild === 'new'" class="edit-box">
-        <h3>Новый ребёнок</h3>
-        <ChildForm @saved="onSaved" />
-        <button class="btn secondary block" style="margin-top: 8px" @click="editingChild = null">Отмена</button>
+      <div class="panel">
+        <template v-if="showNew">
+          <h3 class="panel-title">Новый ребёнок</h3>
+          <ChildForm :key="'new-' + formKey" @saved="onSaved" />
+          <button v-if="children.children.length" class="btn secondary block" style="margin-top: 8px" @click="tab = null">Отмена</button>
+        </template>
+        <template v-else-if="selectedChild">
+          <div class="panel-head">
+            <span class="dot" :style="{ background: selectedChild.color }"></span>
+            <b>Профиль: {{ selectedChild.name }}</b>
+          </div>
+          <ChildForm
+            :key="selectedChild.id + '-' + formKey"
+            :child="selectedChild"
+            @saved="onSaved"
+            @cancel="onCancel"
+            @delete="onDelete(selectedChild)"
+          />
+        </template>
       </div>
-      <button v-else class="btn secondary block" style="margin-top: 10px" @click="editingChild = 'new'">
-        + Добавить ребёнка
-      </button>
     </div>
 
     <div class="card">
@@ -121,35 +147,49 @@ async function onImportFile(e) {
 </template>
 
 <style scoped>
-.child-btn {
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.tab {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-2);
+  color: var(--c-text-soft);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.tab-add.active {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+
+.panel { padding-top: 12px; }
+
+.panel-title { margin: 0 0 8px; }
+
+.panel-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 14px;
-  margin-bottom: 8px;
-  min-height: 52px;
-  border: 1px solid var(--c-border);
-  border-left-width: 4px;
-  border-radius: var(--radius-sm);
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
-.child-name {
-  flex: 1;
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.chev {
-  color: var(--c-text-soft);
-  font-size: 20px;
-  line-height: 1;
-}
-
-.edit-box {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--c-border);
+.panel-head .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .hidden-input { display: none; }
