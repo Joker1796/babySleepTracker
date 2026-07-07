@@ -14,6 +14,8 @@ const tab = ref(null)   // child.id | 'new' | null (авто → первый р
 const formKey = ref(0)  // ремоунт формы: смена вкладки / сброс правок
 const fileInput = ref(null)
 const message = ref('')
+const savedFlash = ref(false)
+let savedTimer = null
 
 const themes = [
   { id: 'auto', label: 'Как в системе' },
@@ -46,6 +48,9 @@ function onSaved() {
   if (tab.value === 'new') {
     tab.value = children.children[children.children.length - 1]?.id ?? null
   }
+  savedFlash.value = true
+  clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => { savedFlash.value = false }, 1600)
 }
 
 function onCancel() {
@@ -96,6 +101,9 @@ async function onImportFile(e) {
           <div class="panel-head">
             <span class="dot" :style="{ background: selectedChild.color }"></span>
             <b>Профиль: {{ selectedChild.name }}</b>
+            <Transition name="fade">
+              <span v-if="savedFlash" class="saved-flash">✓ Сохранено</span>
+            </Transition>
           </div>
           <ChildForm
             :key="selectedChild.id + '-' + formKey"
@@ -183,6 +191,16 @@ async function onImportFile(e) {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.saved-flash {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--c-walk-soft);
+  color: var(--c-walk);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .panel-head .dot {

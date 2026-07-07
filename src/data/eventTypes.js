@@ -20,7 +20,9 @@ export const EVENT_TYPES = {
     id: 'feedLeft',
     label: 'Левая грудь',
     btnLabel: 'Левая',
+    activeLabel: 'Левая',
     kind: 'point',
+    canTime: true,
     icon: '🤱',
     color: 'var(--c-medicine)',
     softColor: 'var(--c-medicine-soft)'
@@ -29,7 +31,9 @@ export const EVENT_TYPES = {
     id: 'feedRight',
     label: 'Правая грудь',
     btnLabel: 'Правая',
+    activeLabel: 'Правая',
     kind: 'point',
+    canTime: true,
     icon: '🤱',
     color: 'var(--c-medicine)',
     softColor: 'var(--c-medicine-soft)'
@@ -219,6 +223,10 @@ export const MAIN_BUTTON_TYPE_LIST = EVENT_TYPE_LIST.filter(
 
 // Все события, кроме сна — для строк плашки «Истории» (в порядке реестра)
 export const NON_SLEEP_TYPE_LIST = EVENT_TYPE_LIST.filter(t => t.id !== 'sleep')
+
+// Типы для добавления события в «Истории» — без календарных
+// (врач/прививки/витамин D/ногти/лекарство добавляются только в «Календаре»)
+export const NON_CALENDAR_TYPE_LIST = EVENT_TYPE_LIST.filter(t => !CALENDAR_TYPE_IDS.includes(t.id))
 
 // Набор кнопок по умолчанию
 export const DEFAULT_MAIN_BUTTONS = [

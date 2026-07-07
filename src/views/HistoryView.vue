@@ -8,7 +8,7 @@ import { analyzeDay } from '../logic/sleepAnalyzer'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
 import { poopVerb } from '../logic/gender'
-import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, eventKind } from '../data/eventTypes'
+import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, NON_CALENDAR_TYPE_LIST, eventKind } from '../data/eventTypes'
 import { getNorms } from '../data/sleepNorms'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 import TimelineDay from '../components/TimelineDay.vue'
@@ -45,7 +45,7 @@ const otherStats = computed(() => {
   const d = dayjs(dayTs.value)
   const rows = []
   for (const t of NON_SLEEP_TYPE_LIST) {
-    const evs = events.sorted.filter(e => e.type === t.id && dayjs(e.startedAt).isSame(d, 'day'))
+    const evs = events.sorted.filter(e => e.type === t.id && !e.planned && dayjs(e.startedAt).isSame(d, 'day'))
     if (!evs.length) continue
     const label = t.id === 'poop' ? poopWord.value : (t.btnLabel || t.label)
     let value
@@ -295,6 +295,8 @@ function addEvent() {
     </button>
 
     <template v-if="showStats">
+      <div class="card-title stats-title">Статистика сна</div>
+      <p class="muted small stats-note">Сон по дням и средние за выбранный период.</p>
       <div class="row" style="margin-bottom: 12px">
         <select v-model.number="days" class="period-select">
           <option :value="7">7 дней</option>
@@ -343,7 +345,7 @@ function addEvent() {
       </p>
     </template>
 
-    <EventEditSheet :model="sheetModel" @close="sheetModel = null" />
+    <EventEditSheet :model="sheetModel" :types="NON_CALENDAR_TYPE_LIST" @close="sheetModel = null" />
   </div>
 </template>
 
@@ -471,6 +473,10 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
 .src-note {
   margin: -4px 0 12px;
 }
+
+.stats-title { margin-bottom: 2px; }
+
+.stats-note { margin: 0 0 10px; }
 
 .day-bounds {
   display: flex;

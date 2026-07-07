@@ -29,6 +29,7 @@ const dayEvents = computed(() => {
   const to = dayjs(props.dayTs).endOf('day').valueOf()
   return events.sorted
     .filter(e => {
+      if (e.planned) return false
       const end = e.endedAt ?? (eventKind(e) === 'interval' ? now.value : e.startedAt)
       return e.startedAt <= to && end >= from
     })

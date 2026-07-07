@@ -11,6 +11,7 @@ const now = useNow()
 
 const month = ref(dayjs(now.value).startOf('month'))
 const selectedDay = ref(dayjs(now.value).startOf('day')) // dayjs | null
+const showTasks = ref(false)
 const sheetModel = ref(null)
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
@@ -20,7 +21,7 @@ const monthTitle = computed(() => month.value.format('MMMM YYYY'))
 function prevMonth() { month.value = month.value.subtract(1, 'month'); selectedDay.value = null }
 function nextMonth() { month.value = month.value.add(1, 'month'); selectedDay.value = null }
 
-// Только календарные события активного ребёнка
+// Только календарные события активного ребёнка (выполненные + запланированные)
 const calEvents = computed(() => events.sorted.filter(e => CALENDAR_TYPE_IDS.includes(e.type)))
 
 // Число месяца → список событий этого дня (в текущем месяце)
@@ -33,6 +34,14 @@ const byDay = computed(() => {
   return map
 })
 
+// Запланированные задачи (флаг planned), по возрастанию даты
+const plannedTasks = computed(() =>
+  calEvents.value.filter(e => e.planned).sort((a, b) => a.startedAt - b.startedAt)
+)
+
+const todayStart = computed(() => dayjs(now.value).startOf('day').valueOf())
+const isOverdue = (e) => e.startedAt < todayStart.value
+
 // Ячейки сетки: ведущие пустые (неделя с Пн) + числа месяца
 const cells = computed(() => {
   const lead = (month.value.startOf('month').day() + 6) % 7
@@ -42,6 +51,8 @@ const cells = computed(() => {
 })
 
 function hasEvents(day) { return !!byDay.value[day]?.length }
+function dayDone(day) { return (byDay.value[day] || []).some(e => !e.planned) }
+function dayPlanned(day) { return (byDay.value[day] || []).some(e => e.planned) }
 
 function iconsFor(day) {
   const seen = []
@@ -63,9 +74,25 @@ const selectedEvents = computed(() => {
   return [...(byDay.value[selectedDay.value.date()] || [])].sort((a, b) => a.startedAt - b.startedAt)
 })
 
+function dayBase() {
+  return (selectedDay.value || dayjs(simNow())).hour(12).minute(0).second(0).millisecond(0).valueOf()
+}
+
 function addForSelected() {
-  const base = (selectedDay.value || dayjs(simNow())).hour(12).minute(0).second(0).millisecond(0)
-  sheetModel.value = { isNew: true, type: CALENDAR_TYPE_IDS[0], startedAt: base.valueOf() }
+  sheetModel.value = { isNew: true, type: CALENDAR_TYPE_IDS[0], startedAt: dayBase() }
+}
+
+function planNew() {
+  sheetModel.value = { isNew: true, type: CALENDAR_TYPE_IDS[0], startedAt: dayBase(), planned: true }
+}
+
+async function markDone(task) {
+  await events.update({ ...task, planned: false })
+}
+
+async function removeTask(task) {
+  if (!confirm('Удалить задачу?')) return
+  await events.remove(task.id)
 }
 
 function detailOf(e) {
@@ -93,7 +120,7 @@ function detailOf(e) {
           <button
             v-else
             class="cell"
-            :class="{ event: hasEvents(c), selected: isSelected(c) }"
+            :class="{ event: dayDone(c), planned: dayPlanned(c) && !dayDone(c), selected: isSelected(c) }"
             @click="selectDay(c)"
           >
             <span class="num">{{ c }}</span>
@@ -114,10 +141,36 @@ function detailOf(e) {
       <button v-for="e in selectedEvents" :key="e.id" class="ev-row" @click="sheetModel = e">
         <span class="ev-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
         <span class="grow ev-body">
-          <span class="ev-title">{{ EVENT_TYPES[e.type]?.label || e.type }}</span>
+          <span class="ev-title">{{ EVENT_TYPES[e.type]?.label || e.type }}<span v-if="e.planned" class="plan-tag">· план</span></span>
           <span v-if="detailOf(e)" class="muted small">{{ detailOf(e) }}</span>
         </span>
         <span class="muted small">{{ dayjs(e.startedAt).format('HH:mm') }}</span>
+      </button>
+    </div>
+
+    <!-- Задачи: запланированные календарные события -->
+    <button v-if="!showTasks" class="btn block tasks-open" @click="showTasks = true">
+      🎯 Задачи
+    </button>
+
+    <div v-else class="card tasks">
+      <div class="card-title">Запланированные задачи</div>
+      <p v-if="!plannedTasks.length" class="muted small empty-note">Пока нет запланированных событий.</p>
+      <div v-for="t in plannedTasks" :key="t.id" class="task-row">
+        <button class="task-body grow" @click="sheetModel = t">
+          <span class="ev-ico">{{ EVENT_TYPES[t.type]?.icon }}</span>
+          <span class="ev-body grow">
+            <span class="ev-title">{{ EVENT_TYPES[t.type]?.label || t.type }}</span>
+            <span class="small" :class="isOverdue(t) ? 'overdue' : 'muted'">
+              {{ dayjs(t.startedAt).format('D MMM YYYY') }}<template v-if="isOverdue(t)"> · просрочено</template><template v-if="t.note"> · {{ t.note }}</template>
+            </span>
+          </span>
+        </button>
+        <button class="task-act done" @click="markDone(t)" aria-label="Выполнено">✓</button>
+        <button class="task-act del" @click="removeTask(t)" aria-label="Удалить">🗑</button>
+      </div>
+      <button class="btn secondary block" style="margin-top: 10px" @click="planNew">
+        ＋ Запланировать
       </button>
     </div>
 
@@ -196,6 +249,12 @@ function detailOf(e) {
   font-weight: 800;
 }
 
+.cell.planned .num {
+  border: 1.5px dashed var(--c-primary);
+  color: var(--c-primary);
+  font-weight: 800;
+}
+
 .cell.selected .num { outline: 2px solid var(--c-primary); }
 
 .dots {
@@ -244,4 +303,47 @@ function detailOf(e) {
   font-weight: 600;
   font-size: 14px;
 }
+
+.plan-tag {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-soft);
+}
+
+.overdue { color: var(--c-urgent); }
+
+/* Задачи */
+.tasks-open { margin-top: 12px; }
+
+.tasks { margin-top: 12px; }
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.task-row:last-of-type { border-bottom: none; }
+
+.task-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 10px 4px;
+  min-height: 52px;
+}
+
+.task-act {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.task-act.done { color: var(--c-walk); }
+.task-act.del { color: var(--c-urgent); }
 </style>

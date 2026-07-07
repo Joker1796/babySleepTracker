@@ -39,7 +39,8 @@ watch(() => props.model, m => {
     endedAt: tsToLocal(m.endedAt),
     hasEnd: m.endedAt != null,
     note: m.note || '',
-    amount: m.amount ?? null
+    amount: m.amount ?? null,
+    planned: !!m.planned
   }
 }, { immediate: true })
 
@@ -71,7 +72,7 @@ async function save() {
   const amount = typeDef.value.amountUnit && f.amount !== '' && f.amount != null
     ? Number(f.amount)
     : null
-  const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value, amount }
+  const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value, amount, planned: !!f.planned }
   if (f.isNew) await events.add(data)
   else await events.update({ ...props.model, ...data })
   emit('close')

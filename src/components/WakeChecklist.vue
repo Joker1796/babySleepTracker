@@ -17,7 +17,7 @@ const now = useNow()
 // Отметки события за сегодня / за текущее бодрствование
 function eventsFor(item) {
   return events.sorted.filter(e => {
-    if (e.type !== item.type) return false
+    if (e.type !== item.type || e.planned) return false
     if (item.scope === 'wake' && props.wakeSince != null) return e.startedAt >= props.wakeSince
     return dayjs(e.startedAt).isSame(dayjs(now.value), 'day')
   })
