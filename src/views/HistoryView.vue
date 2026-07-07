@@ -8,6 +8,7 @@ import { analyzeDay } from '../logic/sleepAnalyzer'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
 import { poopVerb } from '../logic/gender'
+import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, eventKind } from '../data/eventTypes'
 import { getNorms } from '../data/sleepNorms'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 import TimelineDay from '../components/TimelineDay.vue'
@@ -30,11 +31,27 @@ const dayLabel = computed(() => {
 
 const summary = computed(() => analyzeDay(events.sorted, dayTs.value, now.value))
 
-const tummyMin = computed(() => dayTotalMin(events.sorted, 'tummy', dayTs.value, now.value))
-const poopCount = computed(() => dayCount(events.sorted, 'poop', dayTs.value))
-
 const gender = computed(() => children.activeChild?.gender)
 const poopWord = computed(() => poopVerb(gender.value))
+
+// Строки плашки после четырёх постоянных: по типам событий, реально
+// отмеченным в этот день (независимо от текущих настроек кнопок).
+// Интервальные — суммарным временем, точечные — количеством.
+const otherStats = computed(() => {
+  const d = dayjs(dayTs.value)
+  const rows = []
+  for (const t of MAIN_BUTTON_TYPE_LIST) {
+    const evs = events.sorted.filter(e => e.type === t.id && dayjs(e.startedAt).isSame(d, 'day'))
+    if (!evs.length) continue
+    const isInterval = evs.some(e => eventKind(e) === 'interval')
+    const label = t.id === 'poop' ? poopWord.value : (t.btnLabel || t.label)
+    const value = isInterval
+      ? formatDurationMin(dayTotalMin(events.sorted, t.id, dayTs.value, now.value))
+      : (() => { const n = dayCount(events.sorted, t.id, dayTs.value); return `${n} ${plural(n, 'раз', 'раза', 'раз')}` })()
+    rows.push({ id: t.id, icon: EVENT_TYPES[t.id].icon, label, value })
+  }
+  return rows
+})
 
 // ── Статистика за период ──
 const days = ref(7)
@@ -175,13 +192,9 @@ function addEvent() {
           <span class="rep-label">Среднее бодрствование</span>
           <span class="rep-value">{{ summary.wakeWindowMin > 0 ? formatDurationMin(summary.wakeWindowMin) : '—' }}</span>
         </div>
-        <div class="rep-row">
-          <span class="rep-label">👶 На животе</span>
-          <span class="rep-value">{{ tummyMin > 0 ? formatDurationMin(tummyMin) : '—' }}</span>
-        </div>
-        <div class="rep-row">
-          <span class="rep-label">💩 {{ poopWord }}</span>
-          <span class="rep-value">{{ poopCount }} {{ plural(poopCount, 'раз', 'раза', 'раз') }}</span>
+        <div v-for="r in otherStats" :key="r.id" class="rep-row">
+          <span class="rep-label">{{ r.icon }} {{ r.label }}</span>
+          <span class="rep-value">{{ r.value }}</span>
         </div>
       </div>
     </div>

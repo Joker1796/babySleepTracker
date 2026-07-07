@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
@@ -19,12 +19,6 @@ const childId = computed(() => children.activeChild?.id)
 const phase = computed(() => props.guidance.phase)
 // «Уснул/Уснула» — по полу ребёнка из профиля
 const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
-
-// Раскрытие подробностей идеи «чем заняться» (по аналогии с быстрыми темами)
-const openActivity = ref(null)
-function toggleActivity(i) {
-  openActivity.value = openActivity.value === i ? null : i
-}
 
 const tone = computed(() => {
   if (phase.value === 'time-to-sleep') return 'urgent'
@@ -71,24 +65,6 @@ function stopExtension() {
     </div>
 
     <p v-for="(line, i) in guidance.lines" :key="i" class="flow-line">{{ line }}</p>
-
-    <!-- Активное время: чем заняться — кнопки с раскрытием подробностей -->
-    <div v-if="guidance.activities.length" class="ideas">
-      <div class="idea-tags">
-        <button
-          v-for="(idea, i) in guidance.activities"
-          :key="i"
-          class="idea-tag"
-          :class="{ active: openActivity === i }"
-          @click="toggleActivity(i)"
-        >{{ idea.title }}</button>
-      </div>
-      <Transition name="fade">
-        <div v-if="openActivity !== null" class="idea-text">
-          {{ guidance.activities[openActivity].text }}
-        </div>
-      </Transition>
-    </div>
 
     <!-- Чек-лист занятий на бодрствование (живот, утренние дела) -->
     <WakeChecklist
@@ -176,36 +152,6 @@ function stopExtension() {
 }
 
 .remaining li, .steps li { margin-bottom: 5px; }
-
-.ideas { margin: 4px 0 12px; }
-
-.idea-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.idea-tag {
-  padding: 7px 14px;
-  min-height: 36px;
-  border-radius: 999px;
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-border);
-  color: var(--c-primary);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.idea-tag.active {
-  background: var(--c-primary-soft);
-  border-color: var(--c-primary);
-}
-
-.idea-text {
-  margin-top: 8px;
-  font-size: 14px;
-  line-height: 1.5;
-}
 
 .remaining { color: var(--c-urgent); font-weight: 500; }
 

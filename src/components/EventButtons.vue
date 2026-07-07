@@ -1,10 +1,12 @@
 <script setup>
 import { computed } from 'vue'
+import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
+import { dayCount } from '../logic/eventStats'
 import { EVENT_TYPES, getMainButtons } from '../data/eventTypes'
 
 const emit = defineEmits(['logged'])
@@ -28,12 +30,22 @@ function elapsed(ev) {
   return formatDurationMin((now.value - ev.startedAt) / 60000)
 }
 
+// Сколько раз тип отмечен сегодня (для кнопок в режиме «количество»)
+function countToday(type) {
+  return dayCount(events.sorted, type, dayjs(now.value).startOf('day').valueOf())
+}
+
 function labelOf(b) {
   const def = typeOf(b.type)
-  const open = openOf(b)
-  if (open) return `${def.activeLabel || def.btnLabel || def.label} ${elapsed(open)}`
-  if (b.type === 'poop') return poopVerb(children.activeChild?.gender)
-  return def.btnLabel || def.label
+  if (b.mode === 'time') {
+    const open = openOf(b)
+    if (open) return `${def.activeLabel || def.btnLabel || def.label} ${elapsed(open)}`
+    return def.btnLabel || def.label
+  }
+  // Режим «количество»: показываем счётчик за сегодня в скобках, напр. «Покакал (1)»
+  const base = b.type === 'poop' ? poopVerb(children.activeChild?.gender) : (def.btnLabel || def.label)
+  const n = countToday(b.type)
+  return n > 0 ? `${base} (${n})` : base
 }
 
 function btnStyle(b) {
