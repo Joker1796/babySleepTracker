@@ -65,8 +65,9 @@ const otherStats = computed(() => {
   return rows
 })
 
-// Аккордеон верхней плашки-сводки
-const showSummary = ref(true)
+// Аккордеон верхней плашки-сводки: первые 4 строки (сон) видны всегда,
+// остальные (события дня) — сворачиваются под эту кнопку.
+const showSummary = ref(false)
 
 // ── Статистика за период ──
 const days = ref(7)
@@ -196,14 +197,11 @@ function addEvent() {
     </div>
 
     <div class="card summary">
-      <button class="summary-head" @click="showSummary = !showSummary">
-        <span class="grow">
-          <b>Сводка за день</b>
-          <span class="muted small"> · {{ formatDurationMin(summary.totalSleepMin) }} сна</span>
-        </span>
-        <span class="chev" :class="{ open: showSummary }">›</span>
-      </button>
-      <div v-if="showSummary" class="report">
+      <div class="summary-head-static">
+        <b>Сводка за день</b>
+        <span class="muted small"> · {{ formatDurationMin(summary.totalSleepMin) }} сна</span>
+      </div>
+      <div class="report">
         <div class="rep-row">
           <span class="rep-label">Всего сна</span>
           <span class="rep-value">{{ formatDurationMin(summary.totalSleepMin) }}</span>
@@ -220,11 +218,17 @@ function addEvent() {
           <span class="rep-label">Среднее бодрствование</span>
           <span class="rep-value">{{ summary.wakeWindowMin > 0 ? formatDurationMin(summary.wakeWindowMin) : '—' }}</span>
         </div>
-        <div v-for="r in otherStats" :key="r.id" class="rep-row">
-          <span class="rep-label">{{ r.icon }} {{ r.label }}</span>
-          <span class="rep-value">{{ r.value }}</span>
-        </div>
+        <template v-if="showSummary">
+          <div v-for="r in otherStats" :key="r.id" class="rep-row">
+            <span class="rep-label">{{ r.icon }} {{ r.label }}</span>
+            <span class="rep-value">{{ r.value }}</span>
+          </div>
+        </template>
       </div>
+      <button v-if="otherStats.length" class="summary-more" @click="showSummary = !showSummary">
+        <span class="chev" :class="{ open: showSummary }">›</span>
+        {{ showSummary ? 'Свернуть' : `Ещё ${otherStats.length} ${plural(otherStats.length, 'событие', 'события', 'событий')}` }}
+      </button>
     </div>
 
     <div class="card">
@@ -388,23 +392,31 @@ function addEvent() {
   opacity: 0.35;
 }
 
-.summary-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
+.summary-head-static {
   font-size: 15px;
 }
 
-.summary-head .chev {
+.summary-more {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--c-border);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--c-text-soft);
-  font-size: 22px;
+}
+
+.summary-more .chev {
+  font-size: 20px;
   line-height: 1;
   transition: transform 0.2s;
 }
 
-.summary-head .chev.open { transform: rotate(90deg); }
+.summary-more .chev.open { transform: rotate(90deg); }
 
 .report {
   display: flex;

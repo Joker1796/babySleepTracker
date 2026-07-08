@@ -27,13 +27,13 @@ function labelOf(e) {
 const dayEvents = computed(() => {
   const from = dayjs(props.dayTs).startOf('day').valueOf()
   const to = dayjs(props.dayTs).endOf('day').valueOf()
+  // Хронологический порядок: раннее сверху, позднее снизу
   return events.sorted
     .filter(e => {
       if (e.planned) return false
       const end = e.endedAt ?? (eventKind(e) === 'interval' ? now.value : e.startedAt)
       return e.startedAt <= to && end >= from
     })
-    .reverse()
 })
 
 function typeOf(e) {

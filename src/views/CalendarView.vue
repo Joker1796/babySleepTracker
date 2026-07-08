@@ -11,7 +11,6 @@ const now = useNow()
 
 const month = ref(dayjs(now.value).startOf('month'))
 const selectedDay = ref(dayjs(now.value).startOf('day')) // dayjs | null
-const showTasks = ref(false)
 const sheetModel = ref(null)
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
@@ -33,14 +32,6 @@ const byDay = computed(() => {
   }
   return map
 })
-
-// Запланированные задачи (флаг planned), по возрастанию даты
-const plannedTasks = computed(() =>
-  calEvents.value.filter(e => e.planned).sort((a, b) => a.startedAt - b.startedAt)
-)
-
-const todayStart = computed(() => dayjs(now.value).startOf('day').valueOf())
-const isOverdue = (e) => e.startedAt < todayStart.value
 
 // Ячейки сетки: ведущие пустые (неделя с Пн) + числа месяца
 const cells = computed(() => {
@@ -78,23 +69,10 @@ function dayBase() {
   return (selectedDay.value || dayjs(simNow())).hour(12).minute(0).second(0).millisecond(0).valueOf()
 }
 
-// Быстрое добавление по иконке: открываем форму нужного типа на выбранном дне
-// (там можно вписать комментарий, а для роста/веса — число).
+// Тап по иконке открывает форму события на выбранном дне. Выбор
+// «уже было / запланировано» — внутри самой формы (EventEditSheet).
 function addType(typeId) {
   sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase() }
-}
-
-function planType(typeId) {
-  sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase(), planned: true }
-}
-
-async function markDone(task) {
-  await events.update({ ...task, planned: false })
-}
-
-async function removeTask(task) {
-  if (!confirm('Удалить задачу?')) return
-  await events.remove(task.id)
 }
 
 function detailOf(e) {
@@ -143,13 +121,14 @@ function detailOf(e) {
           v-for="t in CALENDAR_TYPE_LIST"
           :key="t.id"
           class="add-ico"
-          :title="'Добавить: ' + t.label"
+          :title="t.label"
           @click="addType(t.id)"
         >
           <span class="ai-emoji">{{ t.icon }}</span>
           <span class="ai-label">{{ t.btnLabel || t.label }}</span>
         </button>
       </div>
+
       <p v-if="selectedDay && !selectedEvents.length" class="muted small empty-note">В этот день событий нет.</p>
       <button v-for="e in selectedEvents" :key="e.id" class="ev-row" @click="sheetModel = e">
         <span class="ev-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
@@ -161,43 +140,7 @@ function detailOf(e) {
       </button>
     </div>
 
-    <!-- Задачи: запланированные календарные события -->
-    <button v-if="!showTasks" class="btn block tasks-open" @click="showTasks = true">
-      🎯 Задачи
-    </button>
-
-    <div v-else class="card tasks">
-      <div class="card-title">Запланированные задачи</div>
-      <p v-if="!plannedTasks.length" class="muted small empty-note">Пока нет запланированных событий.</p>
-      <div v-for="t in plannedTasks" :key="t.id" class="task-row">
-        <button class="task-body grow" @click="sheetModel = t">
-          <span class="ev-ico">{{ EVENT_TYPES[t.type]?.icon }}</span>
-          <span class="ev-body grow">
-            <span class="ev-title">{{ EVENT_TYPES[t.type]?.label || t.type }}</span>
-            <span class="small" :class="isOverdue(t) ? 'overdue' : 'muted'">
-              {{ dayjs(t.startedAt).format('D MMM YYYY') }}<template v-if="isOverdue(t)"> · просрочено</template><template v-if="t.note"> · {{ t.note }}</template>
-            </span>
-          </span>
-        </button>
-        <button class="task-act done" @click="markDone(t)" aria-label="Выполнено">✓</button>
-        <button class="task-act del" @click="removeTask(t)" aria-label="Удалить">🗑</button>
-      </div>
-      <div class="tasks-cap">Запланировать:</div>
-      <div class="add-palette">
-        <button
-          v-for="t in CALENDAR_TYPE_LIST"
-          :key="t.id"
-          class="add-ico"
-          :title="'Запланировать: ' + t.label"
-          @click="planType(t.id)"
-        >
-          <span class="ai-emoji">{{ t.icon }}</span>
-          <span class="ai-label">{{ t.btnLabel || t.label }}</span>
-        </button>
-      </div>
-    </div>
-
-    <EventEditSheet :model="sheetModel" :types="CALENDAR_TYPE_LIST" @close="sheetModel = null" />
+    <EventEditSheet :model="sheetModel" :types="CALENDAR_TYPE_LIST" allow-plan @close="sheetModel = null" />
   </div>
 </template>
 
@@ -355,49 +298,6 @@ function detailOf(e) {
 
 .plan-tag {
   margin-left: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--c-text-soft);
-}
-
-.overdue { color: var(--c-urgent); }
-
-/* Задачи */
-.tasks-open { margin-top: 12px; }
-
-.tasks { margin-top: 12px; }
-
-.task-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-bottom: 1px solid var(--c-border);
-}
-
-.task-row:last-of-type { border-bottom: none; }
-
-.task-body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  padding: 10px 4px;
-  min-height: 52px;
-}
-
-.task-act {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  font-size: 18px;
-}
-
-.task-act.done { color: var(--c-walk); }
-.task-act.del { color: var(--c-urgent); }
-
-.tasks-cap {
-  margin: 12px 0 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--c-text-soft);

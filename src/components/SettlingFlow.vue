@@ -1,12 +1,9 @@
 <script setup>
 import { computed } from 'vue'
-import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
-import { useNow } from '../composables/useNow'
 import { sleepVerb } from '../logic/gender'
-import { EVENT_TYPES, CALENDAR_TYPE_IDS } from '../data/eventTypes'
 import WakeChecklist from './WakeChecklist.vue'
 
 const props = defineProps({
@@ -18,19 +15,8 @@ const events = useEventsStore()
 const settling = useSettlingStore()
 const children = useChildrenStore()
 
-const now = useNow()
 const childId = computed(() => children.activeChild?.id)
 const phase = computed(() => props.guidance.phase)
-
-// Запланированные задачи из «Календаря» — показываем в блоке «Чем заняться»
-const plannedTasks = computed(() => {
-  if (phase.value !== 'active') return []
-  return events.sorted
-    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type))
-    .sort((a, b) => a.startedAt - b.startedAt)
-})
-const todayStart = computed(() => dayjs(now.value).startOf('day').valueOf())
-const isOverdue = (t) => t.startedAt < todayStart.value
 // «Уснул/Уснула» — по полу ребёнка из профиля
 const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
 
@@ -86,16 +72,6 @@ function stopExtension() {
       :items="guidance.wakeChecklist"
       :wake-since="guidance.wakeSince"
     />
-
-    <!-- Задачи из «Календаря» (запланированные события) -->
-    <div v-if="plannedTasks.length" class="tasks-block">
-      <div class="tasks-cap">🎯 Задачи из календаря</div>
-      <div v-for="t in plannedTasks" :key="t.id" class="task-line">
-        <span class="task-ico">{{ EVENT_TYPES[t.type]?.icon }}</span>
-        <span class="grow task-name">{{ EVENT_TYPES[t.type]?.label || t.type }}<template v-if="t.note"> · {{ t.note }}</template></span>
-        <span class="task-date small" :class="isOverdue(t) ? 'overdue' : 'muted'">{{ dayjs(t.startedAt).format('D MMM') }}</span>
-      </div>
-    </div>
 
     <!-- Продление сна: шаги алгоритма -->
     <template v-if="phase === 'nap-extension'">
@@ -182,34 +158,6 @@ function stopExtension() {
 .steps li { margin-bottom: 8px; }
 
 .start-btn { margin-top: 6px; }
-
-/* Задачи из календаря */
-.tasks-block { margin: 4px 0 10px; }
-
-.tasks-cap {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--c-text-soft);
-  margin-bottom: 6px;
-}
-
-.task-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--c-border);
-}
-
-.task-line:last-child { border-bottom: none; }
-
-.task-ico { font-size: 18px; }
-
-.task-name { font-size: 14px; font-weight: 500; }
-
-.task-date { flex-shrink: 0; }
-
-.overdue { color: var(--c-urgent); }
 
 .two-btn { gap: 10px; margin-top: 8px; }
 

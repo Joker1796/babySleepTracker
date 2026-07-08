@@ -9,13 +9,36 @@ import { EVENT_TYPES, EVENT_TYPE_LIST, eventKind } from '../data/eventTypes'
 const props = defineProps({
   model: { type: Object, default: null },
   // Ограничение списка типов в выпадашке (напр. только календарные)
-  types: { type: Array, default: null }
+  types: { type: Array, default: null },
+  // Показывать выбор «уже было / запланировано» (используется в Календаре)
+  allowPlan: { type: Boolean, default: false }
 })
 const emit = defineEmits(['close'])
 
-const typeOptions = computed(() => props.types || EVENT_TYPE_LIST)
-
 const events = useEventsStore()
+
+// Последнее использование каждого типа (по времени начала события)
+const lastUsed = computed(() => {
+  const last = {}
+  for (const e of events.sorted) {
+    if (last[e.type] == null || e.startedAt > last[e.type]) last[e.type] = e.startedAt
+  }
+  return last
+})
+
+// Список типов в выпадашке: недавно использованные — первыми,
+// остальные сохраняют порядок реестра (стабильная сортировка).
+const typeOptions = computed(() => {
+  const base = props.types || EVENT_TYPE_LIST
+  const last = lastUsed.value
+  return [...base].sort((a, b) => {
+    const la = last[a.id], lb = last[b.id]
+    if (la != null && lb != null) return lb - la
+    if (la != null) return -1
+    if (lb != null) return 1
+    return 0
+  })
+})
 
 const form = ref(null)
 const error = ref('')
@@ -92,6 +115,15 @@ async function remove() {
         <div class="sheet">
           <div class="sheet-handle"></div>
           <h2>{{ form.isNew ? 'Новое событие' : 'Изменить событие' }}</h2>
+
+          <!-- Уже было / запланировано (только в Календаре) -->
+          <div v-if="allowPlan" class="field">
+            <label>Статус</label>
+            <div class="chips">
+              <button class="chip" :class="{ active: !form.planned }" @click="form.planned = false">✓ Уже было</button>
+              <button class="chip" :class="{ active: form.planned }" @click="form.planned = true">🎯 Запланировано</button>
+            </div>
+          </div>
 
           <div v-if="form.isNew" class="field">
             <label>Тип события</label>
@@ -170,6 +202,12 @@ async function remove() {
 }
 
 .field { margin-bottom: 12px; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
 .check-row { margin: 4px 0 12px; }
 
