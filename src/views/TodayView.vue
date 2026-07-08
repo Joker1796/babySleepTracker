@@ -8,6 +8,7 @@ import { useUiStore } from '../stores/ui'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
+import { sleepVerb, wakeVerb } from '../logic/gender'
 import ChildSwitcher from '../components/ChildSwitcher.vue'
 import SleepButton from '../components/SleepButton.vue'
 import SettlingFlow from '../components/SettlingFlow.vue'
@@ -67,6 +68,8 @@ watch(
 // показываем «Ночное пробуждение», а не «Бодрствует» — даже во время продления сна.
 const isNightWaking = computed(() => !!guidance.value?.isNightWaking)
 
+const genderOf = computed(() => children.activeChild?.gender)
+
 const status = computed(() => {
   const a = advice.value
   if (!a) return null
@@ -74,14 +77,14 @@ const status = computed(() => {
     return {
       icon: '😴',
       title: `Спит ${formatDurationMin(a.state.sleepingMin)}`,
-      sub: `уснул(а) в ${dayjs(a.state.sleeping.startedAt).format('HH:mm')}`
+      sub: `${sleepVerb(genderOf.value).toLowerCase()} в ${dayjs(a.state.sleeping.startedAt).format('HH:mm')}`
     }
   }
   if (isNightWaking.value && a.state.lastWakeAt != null) {
     return {
       icon: '🌙',
       title: 'Ночное пробуждение',
-      sub: `проснулся(ась) в ${dayjs(a.state.lastWakeAt).format('HH:mm')} · уложите обратно`
+      sub: `${wakeVerb(genderOf.value).toLowerCase()} в ${dayjs(a.state.lastWakeAt).format('HH:mm')} · уложите обратно`
     }
   }
   if (a.state.awakeMin != null) {
@@ -97,7 +100,7 @@ const status = computed(() => {
 
 const wokeAtLabel = computed(() => {
   const t = advice.value?.state.lastWakeAt
-  return t != null ? `проснулся(ась) в ${dayjs(t).format('HH:mm')}` : ''
+  return t != null ? `${wakeVerb(genderOf.value).toLowerCase()} в ${dayjs(t).format('HH:mm')}` : ''
 })
 
 const progress = computed(() => {
@@ -110,7 +113,7 @@ const progress = computed(() => {
 const timeToSleepLabel = computed(() => {
   const left = advice.value?.wakeWindowLeft
   if (left == null) return ''
-  return left > 0 ? `время до сна ~${formatDurationMin(left)}` : 'пора укладывать'
+  return left > 0 ? `до сна ~${formatDurationMin(left)}` : 'пора укладывать'
 })
 
 

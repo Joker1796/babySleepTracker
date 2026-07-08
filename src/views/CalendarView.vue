@@ -42,18 +42,8 @@ const cells = computed(() => {
   return arr
 })
 
-function hasEvents(day) { return !!byDay.value[day]?.length }
 function dayDone(day) { return (byDay.value[day] || []).some(e => !e.planned) }
 function dayPlanned(day) { return (byDay.value[day] || []).some(e => e.planned) }
-
-function iconsFor(day) {
-  const seen = []
-  for (const e of byDay.value[day] || []) {
-    const ic = EVENT_TYPES[e.type]?.icon
-    if (ic && !seen.includes(ic)) seen.push(ic)
-  }
-  return seen.slice(0, 3)
-}
 
 function selectDay(day) {
   if (day) selectedDay.value = month.value.date(day)
@@ -67,7 +57,10 @@ const selectedEvents = computed(() => {
 })
 
 function dayBase() {
-  return (selectedDay.value || dayjs(simNow())).hour(12).minute(0).second(0).millisecond(0).valueOf()
+  const day = selectedDay.value || dayjs(simNow())
+  // Для сегодняшнего дня подставляем текущее время, иначе — полдень выбранной даты
+  if (day.isSame(dayjs(simNow()), 'day')) return simNow()
+  return day.hour(12).minute(0).second(0).millisecond(0).valueOf()
 }
 
 // Тап по иконке открывает форму события на выбранном дне. Выбор
@@ -116,9 +109,6 @@ function detailOf(e) {
             @click="selectDay(c)"
           >
             <span class="num">{{ c }}</span>
-            <span v-if="hasEvents(c)" class="dots">
-              <span v-for="(ic, k) in iconsFor(c)" :key="k">{{ ic }}</span>
-            </span>
           </button>
         </template>
       </div>
@@ -241,13 +231,6 @@ function detailOf(e) {
 }
 
 .cell.selected .num { outline: 2px solid var(--c-primary); }
-
-.dots {
-  display: flex;
-  gap: 1px;
-  font-size: 9px;
-  line-height: 1;
-}
 
 .day-card { margin-top: 12px; }
 

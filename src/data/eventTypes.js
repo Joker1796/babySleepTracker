@@ -285,7 +285,7 @@ export const EVENT_TYPES = {
 export const EVENT_TYPE_LIST = Object.values(EVENT_TYPES)
 
 // Типы кормления — на главном экране всегда идут первыми
-export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula']
+export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula', 'food']
 
 // Календарные события: отмечаются датой и подсвечиваются во вкладке «Календарь»
 // (на главный экран не выносятся)

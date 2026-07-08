@@ -11,6 +11,7 @@ function toggle(id) {
 <template>
   <div class="quick">
     <div class="tags">
+      <router-link to="/advice" class="tag tag-advice">💡 Советы</router-link>
       <button
         v-for="t in QUICK_TOPICS"
         :key="t.id"
@@ -37,19 +38,29 @@ function toggle(id) {
 }
 
 .tag {
-  padding: 7px 14px;
-  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  min-height: 32px;
   border-radius: 999px;
   background: var(--c-surface-2);
   border: 1px solid var(--c-border);
   color: var(--c-primary);
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
+  text-decoration: none;
 }
 
 .tag.active {
   background: var(--c-primary-soft);
   border-color: var(--c-primary);
+}
+
+/* Выделенный чип «Советы» — ведёт на страницу базы знаний */
+.tag-advice {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
 }
 
 .topic-text {

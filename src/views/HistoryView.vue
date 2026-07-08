@@ -329,20 +329,20 @@ function addEvent() {
       </div>
       <div class="report">
         <div class="rep-row">
-          <span class="rep-label">Всего сна</span>
-          <span class="rep-value">{{ formatDurationMin(summary.totalSleepMin) }}</span>
-        </div>
-        <div class="rep-row">
-          <span class="rep-label">Ночной сон</span>
-          <span class="rep-value">{{ formatDurationMin(summary.nightSleepMin) }}</span>
+          <span class="rep-label">Среднее бодрствование</span>
+          <span class="rep-value">{{ summary.wakeWindowMin > 0 ? formatDurationMin(summary.wakeWindowMin) : '—' }}</span>
         </div>
         <div class="rep-row">
           <span class="rep-label">Дневной сон</span>
           <span class="rep-value">{{ formatDurationMin(summary.daySleepMin) }} · {{ summary.napCount }} {{ plural(summary.napCount, 'сон', 'сна', 'снов') }}</span>
         </div>
         <div class="rep-row">
-          <span class="rep-label">Среднее бодрствование</span>
-          <span class="rep-value">{{ summary.wakeWindowMin > 0 ? formatDurationMin(summary.wakeWindowMin) : '—' }}</span>
+          <span class="rep-label">Ночной сон</span>
+          <span class="rep-value">{{ formatDurationMin(summary.nightSleepMin) }}</span>
+        </div>
+        <div class="rep-row">
+          <span class="rep-label">Всего сна</span>
+          <span class="rep-value">{{ formatDurationMin(summary.totalSleepMin) }}</span>
         </div>
         <template v-if="showSummary">
           <div v-for="r in otherStats" :key="r.id" class="rep-row">

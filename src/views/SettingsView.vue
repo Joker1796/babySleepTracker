@@ -57,6 +57,13 @@ function onCancel() {
   formKey.value++ // ремоунт → сброс несохранённых правок
 }
 
+// Режим расчёта активного профиля: 'auto' (движок по возрасту) / 'custom' (свои параметры)
+const regimeMode = computed(() => selectedChild.value?.regime?.mode || 'auto')
+function toggleRegime() {
+  const id = selectedChild.value?.id
+  if (id) children.setRegimeMode(id, regimeMode.value === 'custom' ? 'auto' : 'custom')
+}
+
 async function onImportFile(e) {
   const file = e.target.files?.[0]
   e.target.value = ''
@@ -114,6 +121,18 @@ async function onImportFile(e) {
           />
         </template>
       </div>
+    </div>
+
+    <div v-if="selectedChild && !showNew" class="card">
+      <div class="card-title">Режим расчёта</div>
+      <button class="btn block regime-btn" :class="{ custom: regimeMode === 'custom' }" @click="toggleRegime">
+        {{ regimeMode === 'custom' ? '🎛️ Свой режим' : '✨ Авто' }}
+      </button>
+      <p class="muted small" style="margin-top: 8px">
+        {{ regimeMode === 'custom'
+          ? 'Подсказки считаются по вашим параметрам (окна бодрствования, число снов). Настроить — во вкладке «Мой режим».'
+          : 'Подсказки считаются автоматически по возрасту ребёнка. Нажмите, чтобы задать свои параметры.' }}
+      </p>
     </div>
 
     <div class="card">
@@ -211,4 +230,15 @@ async function onImportFile(e) {
 }
 
 .hidden-input { display: none; }
+
+.regime-btn {
+  min-height: 52px;
+  font-size: 16px;
+}
+
+.regime-btn.custom {
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  border: 1px solid var(--c-primary);
+}
 </style>
