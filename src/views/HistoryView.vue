@@ -8,7 +8,7 @@ import { analyzeDay } from '../logic/sleepAnalyzer'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
 import { poopVerb } from '../logic/gender'
-import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, NON_CALENDAR_TYPE_LIST, eventKind } from '../data/eventTypes'
+import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, NON_CALENDAR_TYPE_LIST, CALENDAR_TYPE_IDS, eventKind } from '../data/eventTypes'
 import { getNorms } from '../data/sleepNorms'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 import TimelineDay from '../components/TimelineDay.vue'
@@ -155,12 +155,51 @@ const profile = computed(() =>
   scheduleProfile(events.sorted, now.value, days.value, children.activeChild)
 )
 
+// Запланированные события завтрашнего дня → «якоря» бодрствования для расписания
+const tomorrowAnchors = computed(() => {
+  const start = dayjs(now.value).startOf('day').add(1, 'day')
+  const end = start.add(1, 'day')
+  return events.sorted
+    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type) &&
+      e.startedAt >= start.valueOf() && e.startedAt < end.valueOf())
+    .map(e => ({
+      min: dayjs(e.startedAt).diff(start, 'minute'),
+      label: EVENT_TYPES[e.type]?.label || e.type,
+      icon: EVENT_TYPES[e.type]?.icon || '📌'
+    }))
+})
+
 const schedule = computed(() =>
   buildSchedule(profile.value, {
     wakeMin: hhmmToMin(wakeStr.value),
-    bedMin: hhmmToMin(bedStr.value)
+    bedMin: hhmmToMin(bedStr.value),
+    anchors: tomorrowAnchors.value
   })
 )
+
+// Единый упорядоченный список для отрисовки: подъём → окна/сны/события → отбой
+const schedRows = computed(() => {
+  const s = schedule.value
+  const rows = [{ kind: 'wake', hhmm: s.wake.hhmm }]
+  const stops = [
+    ...s.naps.map(n => ({ at: n.startMin, kind: 'nap', nap: n })),
+    ...s.anchors.map(a => ({ at: a.min, kind: 'event', ev: a }))
+  ].sort((x, y) => x.at - y.at)
+  let prevEnd = s.wake.min
+  let napIdx = 0
+  for (const st of stops) {
+    if (st.kind === 'nap') {
+      rows.push({ kind: 'gap', min: st.nap.startMin - prevEnd })
+      rows.push({ kind: 'nap', idx: ++napIdx, nap: st.nap })
+      prevEnd = st.nap.endMin
+    } else {
+      rows.push({ kind: 'event', ev: st.ev })
+    }
+  }
+  rows.push({ kind: 'gap', min: s.bedtime.min - prevEnd })
+  rows.push({ kind: 'bed', hhmm: s.bedtime.hhmm })
+  return rows
+})
 
 // Засечки времени на 24-часовой полосе
 const timeTicks = [0, 6, 12, 18, 24]
@@ -272,6 +311,13 @@ function addEvent() {
             :class="s.type"
             :style="{ left: `${(s.from / 1440) * 100}%`, width: `${((s.to - s.from) / 1440) * 100}%` }"
           ></div>
+          <div
+            v-for="(a, i) in schedule.anchors"
+            :key="'a' + i"
+            class="tl-anchor"
+            :style="{ left: `${(a.min / 1440) * 100}%` }"
+            :title="`${a.label} · ${a.hhmm}`"
+          >{{ a.icon }}</div>
         </div>
         <div class="tl-ticks">
           <span v-for="t in timeTicks" :key="t" :style="{ left: `${(t / 24) * 100}%` }">{{ t }}</span>
@@ -279,28 +325,33 @@ function addEvent() {
       </div>
 
       <div class="sched-list">
-        <div class="sched-row">
-          <span class="sr-ico">☀️</span>
-          <span class="sr-label">Подъём</span>
-          <span class="sr-time">{{ schedule.wake.hhmm }}</span>
-        </div>
-        <template v-for="(nap, i) in schedule.naps" :key="i">
-          <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
-          <div class="sched-row">
+        <template v-for="(r, i) in schedRows" :key="i">
+          <div v-if="r.kind === 'wake'" class="sched-row">
+            <span class="sr-ico">☀️</span>
+            <span class="sr-label">Подъём</span>
+            <span class="sr-time">{{ r.hhmm }}</span>
+          </div>
+          <div v-else-if="r.kind === 'gap'" class="sched-gap muted small">бодрствование ~{{ formatDurationMin(r.min) }}</div>
+          <div v-else-if="r.kind === 'nap'" class="sched-row">
             <span class="sr-ico">😴</span>
-            <span class="sr-label">Сон {{ i + 1 }} <span class="muted small">· {{ formatDurationMin(nap.durMin) }}</span></span>
-            <span class="sr-time">{{ nap.startHHMM }}–{{ nap.endHHMM }}</span>
+            <span class="sr-label">Сон {{ r.idx }} <span class="muted small">· {{ formatDurationMin(r.nap.durMin) }}</span></span>
+            <span class="sr-time">{{ r.nap.startHHMM }}–{{ r.nap.endHHMM }}</span>
+          </div>
+          <div v-else-if="r.kind === 'event'" class="sched-row event">
+            <span class="sr-ico">{{ r.ev.icon }}</span>
+            <span class="sr-label">{{ r.ev.label }} <span class="muted small">· бодрствование</span></span>
+            <span class="sr-time">{{ r.ev.hhmm }}</span>
+          </div>
+          <div v-else-if="r.kind === 'bed'" class="sched-row night">
+            <span class="sr-ico">🌙</span>
+            <span class="sr-label">Ночной сон</span>
+            <span class="sr-time">{{ r.hhmm }}</span>
           </div>
         </template>
-        <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
-        <div class="sched-row night">
-          <span class="sr-ico">🌙</span>
-          <span class="sr-label">Ночной сон</span>
-          <span class="sr-time">{{ schedule.bedtime.hhmm }}</span>
-        </div>
       </div>
 
-      <p class="muted small" style="margin-top: 10px">Ориентир по средним, а не жёсткое правило — подстраивайте под признаки усталости малыша.</p>
+      <p v-if="schedule.adjusted" class="muted small adjusted-note">🎯 Расписание подстроено под события из календаря — к их времени малыш бодрствует.</p>
+      <p class="muted small" style="margin-top: 10px">Окна бодрствования короче с утра и длиннее к вечеру. Ориентир по средним, а не жёсткое правило — подстраивайте под признаки усталости малыша.</p>
     </div>
 
     <!-- Статистика -->
@@ -563,6 +614,16 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
 .tl-seg.night { background: var(--c-night-bar); }
 .tl-seg.day { background: var(--c-day-bar); }
 
+.tl-anchor {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  line-height: 1;
+  filter: drop-shadow(0 0 2px var(--c-surface));
+  pointer-events: none;
+}
+
 .tl-ticks {
   position: relative;
   height: 14px;
@@ -596,6 +657,13 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
 .sched-row.night {
   background: var(--c-primary-soft);
 }
+
+.sched-row.event {
+  background: var(--c-warn-soft);
+  outline: 1px solid var(--c-warn);
+}
+
+.adjusted-note { margin-top: 10px; }
 
 .sr-ico { font-size: 18px; }
 
