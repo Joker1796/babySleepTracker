@@ -239,9 +239,12 @@ const profile = computed(() =>
   scheduleProfile(events.sorted, now.value, days.value, children.activeChild)
 )
 
-// Запланированные события завтрашнего дня → «якоря» бодрствования для расписания
-const tomorrowAnchors = computed(() => {
-  const start = dayjs(now.value).startOf('day').add(1, 'day')
+// День, на который строим распорядок (по умолчанию — завтра)
+const schedDate = ref(dayjs(now.value).add(1, 'day').format('YYYY-MM-DD'))
+
+// Запланированные события выбранного дня → «якоря» бодрствования для расписания
+const dayAnchors = computed(() => {
+  const start = dayjs(schedDate.value).startOf('day')
   const end = start.add(1, 'day')
   return events.sorted
     .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type) &&
@@ -257,7 +260,7 @@ const schedule = computed(() =>
   buildSchedule(profile.value, {
     wakeMin: hhmmToMin(wakeStr.value),
     bedMin: hhmmToMin(bedStr.value),
-    anchors: tomorrowAnchors.value
+    anchors: dayAnchors.value
   })
 )
 
@@ -366,6 +369,11 @@ function addEvent() {
           ? `На основе средних за ${schedule.daysCounted} ${plural(schedule.daysCounted, 'день', 'дня', 'дней')} с данными`
           : 'По возрастным нормам — данных о сне пока мало' }}
       </p>
+
+      <label class="bound sched-day">
+        <span>День (учитываются события из календаря на эту дату)</span>
+        <input v-model="schedDate" type="date" />
+      </label>
 
       <div class="day-bounds">
         <label class="bound">
@@ -682,6 +690,8 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
 .stats-note { margin: 0 0 10px; }
 
 .stats-controls { margin-bottom: 12px; }
+
+.sched-day { margin-bottom: 14px; }
 
 .day-bounds {
   display: flex;
