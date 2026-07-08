@@ -178,7 +178,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     g.lines.push(...algo.lines)
   } else if (phase === 'active') {
     // Время до сна и статус показаны в верхней карточке — здесь их не дублируем.
-    g.headline = 'Планы'
+    g.headline = 'Чем заняться'
     g.activities = activitiesForAge(ageM)
     g.wakeChecklist = wakeChecklist()
     if (nextIsNight && !hasBathToday && hour >= 17) {

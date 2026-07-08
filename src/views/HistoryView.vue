@@ -325,7 +325,6 @@ function addEvent() {
     <div class="card summary">
       <div class="summary-head-static">
         <b>Сводка за день</b>
-        <span class="muted small"> · {{ formatDurationMin(summary.totalSleepMin) }} сна</span>
       </div>
       <div class="report">
         <div class="rep-row">

@@ -70,15 +70,6 @@ function addType(typeId) {
   showPalette.value = false
 }
 
-// Иконки типов, по которым в выбранный день есть события (выполненные или в плане)
-const dayIcons = computed(() => {
-  const seen = []
-  for (const e of selectedEvents.value) {
-    const ic = EVENT_TYPES[e.type]?.icon
-    if (ic && !seen.includes(ic)) seen.push(ic)
-  }
-  return seen
-})
 
 function detailOf(e) {
   const unit = EVENT_TYPES[e.type]?.amountUnit
@@ -117,9 +108,6 @@ function detailOf(e) {
     <div class="card day-card">
       <div class="row day-head">
         <b class="grow">{{ selectedDay ? selectedDay.format('D MMMM') : 'Сегодня' }}</b>
-        <span v-if="dayIcons.length" class="day-icons">
-          <span v-for="(ic, k) in dayIcons" :key="k">{{ ic }}</span>
-        </span>
         <button class="btn secondary day-add" :class="{ active: showPalette }" @click="showPalette = !showPalette">
           {{ showPalette ? '✕' : '＋ Добавить' }}
         </button>
@@ -237,14 +225,6 @@ function detailOf(e) {
 .day-head {
   align-items: center;
   margin-bottom: 8px;
-}
-
-.day-icons {
-  display: flex;
-  gap: 3px;
-  font-size: 16px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .day-add {

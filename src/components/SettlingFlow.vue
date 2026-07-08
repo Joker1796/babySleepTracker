@@ -44,6 +44,12 @@ const visiblePlanned = computed(() =>
   expanded.value ? plannedEvents.value : plannedEvents.value.slice(0, 3)
 )
 
+// Заголовок карточки: «Планы» только когда в календаре есть события на сегодня,
+// иначе — обычный заголовок фазы («Чем заняться» и т.п.).
+const flowHeadline = computed(() =>
+  phase.value === 'active' && plannedEvents.value.length ? 'Планы' : props.guidance.headline
+)
+
 // Напоминание за 2 часа по ВСЕМ детям (при нескольких детях) — запрос к БД,
 // чтобы в любом профиле были видны ближайшие события всех детей.
 const allSoon = ref([])
@@ -116,7 +122,7 @@ function stopExtension() {
   <div class="flow card" :class="tone">
     <div class="flow-head">
       <span class="flow-icon">{{ icon }}</span>
-      <h2 class="flow-title">{{ guidance.headline }}</h2>
+      <h2 class="flow-title">{{ flowHeadline }}</h2>
     </div>
 
     <p v-for="(line, i) in guidance.lines" :key="i" class="flow-line">{{ line }}</p>
