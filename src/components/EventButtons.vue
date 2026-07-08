@@ -77,8 +77,8 @@ function btnStyle(b) {
 
 async function onClick(b) {
   const def = typeOf(b.type)
-  // Типы с числовым значением (смесь мл, температура °C) вводятся через форму события
-  if (def.amountUnit) {
+  // Типы с числовым значением (смесь мл) или комментарием (еда) вводятся через форму
+  if (def.amountUnit || def.hasNote) {
     emit('edit', { isNew: true, type: b.type, startedAt: simNow() })
     return
   }

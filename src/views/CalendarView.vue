@@ -12,6 +12,7 @@ const now = useNow()
 const month = ref(dayjs(now.value).startOf('month'))
 const selectedDay = ref(dayjs(now.value).startOf('day')) // dayjs | null
 const sheetModel = ref(null)
+const showPalette = ref(false)
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
@@ -73,7 +74,18 @@ function dayBase() {
 // «уже было / запланировано» — внутри самой формы (EventEditSheet).
 function addType(typeId) {
   sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase() }
+  showPalette.value = false
 }
+
+// Иконки типов, по которым в выбранный день есть события (выполненные или в плане)
+const dayIcons = computed(() => {
+  const seen = []
+  for (const e of selectedEvents.value) {
+    const ic = EVENT_TYPES[e.type]?.icon
+    if (ic && !seen.includes(ic)) seen.push(ic)
+  }
+  return seen
+})
 
 function detailOf(e) {
   const unit = EVENT_TYPES[e.type]?.amountUnit
@@ -115,8 +127,15 @@ function detailOf(e) {
     <div class="card day-card">
       <div class="row day-head">
         <b class="grow">{{ selectedDay ? selectedDay.format('D MMMM') : 'Сегодня' }}</b>
+        <span v-if="dayIcons.length" class="day-icons">
+          <span v-for="(ic, k) in dayIcons" :key="k">{{ ic }}</span>
+        </span>
+        <button class="btn secondary day-add" :class="{ active: showPalette }" @click="showPalette = !showPalette">
+          {{ showPalette ? '✕' : '＋ Добавить' }}
+        </button>
       </div>
-      <div class="add-palette">
+
+      <div v-if="showPalette" class="add-palette">
         <button
           v-for="t in CALENDAR_TYPE_LIST"
           :key="t.id"
@@ -235,6 +254,27 @@ function detailOf(e) {
 .day-head {
   align-items: center;
   margin-bottom: 8px;
+}
+
+.day-icons {
+  display: flex;
+  gap: 3px;
+  font-size: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.day-add {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.day-add.active {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+  color: var(--c-primary);
 }
 
 .add-palette {

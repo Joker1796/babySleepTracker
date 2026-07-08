@@ -7,6 +7,7 @@ import { useNow } from '../composables/useNow'
 import { EVENT_TYPES, eventKind } from '../data/eventTypes'
 import { formatDurationMin, plural } from '../logic/age'
 import { poopVerb } from '../logic/gender'
+import { analyzeDay } from '../logic/sleepAnalyzer'
 
 const props = defineProps({
   dayTs: { type: Number, required: true },
@@ -18,13 +19,12 @@ const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
 
-// Порядковые номера снов за день (для подписи «Сон N»)
+// Порядковые номера ТОЛЬКО дневных снов (nap) за день — для подписи «Сон N».
+// Дневные сны берём из analyzeDay; ночной сон остаётся без номера.
 const napNo = computed(() => {
+  const { naps } = analyzeDay(events.sorted, props.dayTs, now.value)
   const map = {}
-  let n = 0
-  for (const e of dayEvents.value) {
-    if (e.type === 'sleep') { n++; map[e.id] = n }
-  }
+  naps.forEach((s, i) => { map[s.id] = i + 1 })
   return map
 })
 

@@ -147,10 +147,15 @@ const avgVerdict = computed(() => {
 })
 
 // ── Метрика статистики: сон или один из реально отмеченных типов событий ──
+// Служебные/врачебные типы в статистику не выводим.
+const STATS_EXCLUDE = new Set([
+  'doctor', 'vitaminD', 'temperature', 'vaccination', 'pool', 'club',
+  'nails', 'bath', 'massage', 'feedLeft', 'feedRight'
+])
 const metric = ref('sleep')
 const usedEventTypes = computed(() => {
   const present = new Set(events.sorted.filter(e => !e.planned && e.type !== 'sleep').map(e => e.type))
-  return NON_SLEEP_TYPE_LIST.filter(t => present.has(t.id))
+  return NON_SLEEP_TYPE_LIST.filter(t => present.has(t.id) && !STATS_EXCLUDE.has(t.id))
 })
 const metricDef = computed(() => metric.value === 'sleep' ? null : EVENT_TYPES[metric.value])
 
@@ -349,13 +354,6 @@ function addEvent() {
       </button>
     </div>
 
-    <div class="card">
-      <button class="btn secondary block" style="margin-bottom: 12px" @click="addEvent">
-        + Добавить событие
-      </button>
-      <TimelineDay :day-ts="dayTs" @edit="e => (sheetModel = e)" />
-    </div>
-
     <!-- Распорядок дня -->
     <button v-if="!showSchedule" class="btn block schedule-open" @click="openSchedule">
       🗓️ Построить распорядок дня
@@ -513,6 +511,15 @@ function addEvent() {
         </div>
       </template>
     </template>
+
+    <!-- История событий за день -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 10px">История событий</div>
+      <button class="btn secondary block" style="margin-bottom: 12px" @click="addEvent">
+        + Добавить событие
+      </button>
+      <TimelineDay :day-ts="dayTs" @edit="e => (sheetModel = e)" />
+    </div>
 
     <EventEditSheet :model="sheetModel" :types="NON_CALENDAR_TYPE_LIST" @close="sheetModel = null" />
   </div>

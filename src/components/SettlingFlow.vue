@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import dayjs from 'dayjs'
+import { db } from '../db'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
@@ -25,30 +26,47 @@ const phase = computed(() => props.guidance.phase)
 // «Уснул/Уснула» — по полу ребёнка из профиля
 const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
 
-// Запланированные события календаря активного ребёнка (будущие и сегодняшние) —
+// Запланированные события календаря активного ребёнка ТОЛЬКО за сегодня —
 // показываем в блоке «Чем заняться» с временем.
 const plannedEvents = computed(() => {
   if (phase.value !== 'active') return []
-  const todayStart = dayjs(now.value).startOf('day').valueOf()
+  const dayStart = dayjs(now.value).startOf('day').valueOf()
+  const dayEnd = dayjs(now.value).endOf('day').valueOf()
   return events.sorted
-    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type) && e.startedAt >= todayStart)
+    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type) &&
+      e.startedAt >= dayStart && e.startedAt <= dayEnd)
     .sort((a, b) => a.startedAt - b.startedAt)
 })
 
-// Напоминание за 2 часа: только при нескольких детях и о ближайшем событии ≤ 2 ч
-const soonEvent = computed(() => {
-  if (children.children.length < 2) return null
+// Если событий много — показываем первые 3, остальное под кнопкой
+const expanded = ref(false)
+const visiblePlanned = computed(() =>
+  expanded.value ? plannedEvents.value : plannedEvents.value.slice(0, 3)
+)
+
+// Напоминание за 2 часа по ВСЕМ детям (при нескольких детях) — запрос к БД,
+// чтобы в любом профиле были видны ближайшие события всех детей.
+const allSoon = ref([])
+async function refreshSoon() {
+  if (children.children.length < 2) { allSoon.value = []; return }
   const from = now.value
   const to = from + 2 * 60 * 60 * 1000
-  const ev = plannedEvents.value.find(e => e.startedAt >= from && e.startedAt <= to)
-  if (!ev) return null
-  return {
-    icon: EVENT_TYPES[ev.type]?.icon || '📌',
-    label: EVENT_TYPES[ev.type]?.label || ev.type,
-    hhmm: dayjs(ev.startedAt).format('HH:mm'),
-    inMin: Math.round((ev.startedAt - from) / 60000)
-  }
-})
+  const rows = await db.events.where('startedAt').between(from, to, true, true).toArray()
+  allSoon.value = rows
+    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type))
+    .sort((a, b) => a.startedAt - b.startedAt)
+    .map(e => ({
+      id: e.id,
+      name: children.children.find(c => c.id === e.childId)?.name || '',
+      icon: EVENT_TYPES[e.type]?.icon || '📌',
+      label: EVENT_TYPES[e.type]?.label || e.type,
+      hhmm: dayjs(e.startedAt).format('HH:mm'),
+      inMin: Math.round((e.startedAt - from) / 60000)
+    }))
+}
+onMounted(refreshSoon)
+watch(() => now.value, refreshSoon)
+watch(() => children.children.length, refreshSoon)
 
 function evTime(e) {
   return dayjs(e.startedAt).format('D MMM, HH:mm')
@@ -110,19 +128,24 @@ function stopExtension() {
       :wake-since="guidance.wakeSince"
     />
 
-    <!-- Напоминание за 2 часа (при нескольких детях) -->
-    <div v-if="soonEvent" class="soon-alert">
-      🔔 Через ~{{ formatDurationMin(soonEvent.inMin) }}: {{ soonEvent.icon }} {{ soonEvent.label }} ({{ soonEvent.hhmm }}) — планируйте бодрствование.
+    <!-- Напоминание за 2 часа по всем детям (при нескольких детях) -->
+    <div v-if="allSoon.length" class="soon-alert">
+      <div v-for="s in allSoon" :key="s.id">
+        🔔 {{ s.name }}: через ~{{ formatDurationMin(s.inMin) }} — {{ s.icon }} {{ s.label }} ({{ s.hhmm }}).
+      </div>
     </div>
 
-    <!-- Запланированные события из «Календаря» со временем -->
+    <!-- Запланированные события из «Календаря» на сегодня со временем -->
     <div v-if="plannedEvents.length" class="plan-block">
-      <div class="plan-cap">🗓️ Из календаря</div>
-      <div v-for="e in plannedEvents" :key="e.id" class="plan-line">
+      <div class="plan-cap">🗓️ Из календаря на сегодня</div>
+      <div v-for="e in visiblePlanned" :key="e.id" class="plan-line">
         <span class="plan-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
         <span class="grow plan-name">{{ EVENT_TYPES[e.type]?.label || e.type }}<template v-if="e.note"> · {{ e.note }}</template></span>
         <span class="plan-date small" :class="evOverdue(e) ? 'overdue' : 'muted'">{{ evTime(e) }}</span>
       </div>
+      <button v-if="plannedEvents.length > 3" class="plan-more" @click="expanded = !expanded">
+        {{ expanded ? 'Свернуть' : `Ещё ${plannedEvents.length - 3}` }}
+      </button>
     </div>
 
     <!-- Продление сна: шаги алгоритма -->
@@ -248,6 +271,13 @@ function stopExtension() {
 .plan-name { font-size: 14px; font-weight: 500; }
 
 .plan-date { flex-shrink: 0; }
+
+.plan-more {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-primary);
+}
 
 .overdue { color: var(--c-urgent); }
 

@@ -289,7 +289,7 @@ export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula']
 
 // Календарные события: отмечаются датой и подсвечиваются во вкладке «Календарь»
 // (на главный экран не выносятся)
-export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club']
+export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club', 'teeth']
 export const CALENDAR_TYPE_LIST = CALENDAR_TYPE_IDS.map(id => EVENT_TYPES[id])
 
 // Типы, доступные в пикере «Кнопки на главном экране» (без сна и без календарных)

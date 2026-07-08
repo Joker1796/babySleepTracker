@@ -119,38 +119,38 @@ const showSleepButton = computed(() =>
   guidance.value && !['settling', 'nap-extension'].includes(guidance.value.phase)
 )
 
-const greetingKey = computed(() => {
+// Универсальное закрытие подсказок крестиком «на день»: ключ включает дату,
+// поэтому назавтра подсказка появляется снова (если ещё актуальна).
+function dayKey(base) {
   const id = children.activeChild?.id
-  return id ? `greeting:${id}:${dayjs(now.value).format('YYYY-MM-DD')}` : null
-})
-const showGreeting = computed(() =>
-  guidance.value?.greeting && !hideHints.value &&
-  greetingKey.value && !ui.isDismissed(greetingKey.value)
-)
-function closeGreeting() {
-  if (greetingKey.value) ui.dismiss(greetingKey.value)
+  return id ? `${base}:${id}:${dayjs(now.value).format('YYYY-MM-DD')}` : null
+}
+function hidden(base) {
+  const k = dayKey(base)
+  return !!k && ui.isDismissed(k)
+}
+function hide(base) {
+  const k = dayKey(base)
+  if (k) ui.dismiss(k)
 }
 
+const showGreeting = computed(() =>
+  guidance.value?.greeting && !hideHints.value && !hidden('greeting')
+)
+
 // Подсказка «настройте под ребёнка» — пока не заданы «помощники сна» и не закрыта
-const aidsHintKey = computed(() => {
-  const id = children.activeChild?.id
-  return id ? `aids-hint:${id}` : null
-})
 const showAidsHint = computed(() =>
   !!children.activeChild &&
   !(children.activeChild.aids && children.activeChild.aids.length) &&
-  aidsHintKey.value && !ui.isDismissed(aidsHintKey.value)
+  !hidden('aids-hint')
 )
-function closeAidsHint() {
-  if (aidsHintKey.value) ui.dismiss(aidsHintKey.value)
-}
 
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
 // они доступны в разделе «Советы». Оставляем только ситуативные.
 const secondaryAdvices = computed(() => advice.value?.advices.filter(a => !a.general).slice(0, 4) || [])
 
-// Все подсказки можно скрыть глобально в настройках («Скрывать все подсказки»).
-const visibleAdvices = computed(() => secondaryAdvices.value)
+// Скрываем закрытые крестиком карточки-подсказки (на день)
+const visibleAdvices = computed(() => secondaryAdvices.value.filter(a => !hidden(`advice-${a.id}`)))
 
 function showToast(msg) {
   toast.value = msg
@@ -163,10 +163,12 @@ function extendNap() {
 }
 
 // Поздравление с месяцем/годом остаётся видимым независимо от «Скрывать подсказки».
-const showMilestone = computed(() => !!guidance.value?.milestone)
+const showMilestone = computed(() => !!guidance.value?.milestone && !hidden('milestone'))
+
+const showAchievement = computed(() => !!guidance.value?.achievement && !hidden('achievement'))
 
 const showEncouragement = computed(() =>
-  guidance.value?.encouragement && !hideHints.value
+  guidance.value?.encouragement && !hideHints.value && !hidden('encouragement')
 )
 
 // Режим расчёта: 'auto' (наш движок по возрасту) или 'custom' (параметры родителя)
@@ -184,15 +186,16 @@ function toggleRegime() {
 
     <!-- Поздравление с новым месяцем/годом -->
     <div v-if="showMilestone" class="card milestone">
+      <button class="hint-close" aria-label="Закрыть" @click="hide('milestone')">×</button>
       <span class="ms-icon">{{ guidance.milestone.isYear ? '🎂' : '🎉' }}</span>
       <p>{{ guidance.milestone.text }}</p>
     </div>
 
-    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @close="closeGreeting" />
+    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @close="hide('greeting')" />
 
     <!-- Подсказка: настроить помощники сна под ребёнка -->
     <div v-if="showAidsHint" class="card aids-hint">
-      <button class="hint-close" aria-label="Закрыть" @click="closeAidsHint">×</button>
+      <button class="hint-close" aria-label="Закрыть" @click="hide('aids-hint')">×</button>
       <span class="hint-icon">⚙️</span>
       <div class="grow">
         <p class="hint-text">Настройте под ребёнка: укачивание, соска, блэкаут и другое — подсказки станут точнее.</p>
@@ -236,13 +239,15 @@ function toggleRegime() {
     </div>
 
     <!-- Достижение дня -->
-    <div v-if="guidance?.achievement" class="card trophy">
+    <div v-if="showAchievement" class="card trophy">
+      <button class="hint-close" aria-label="Закрыть" @click="hide('achievement')">×</button>
       <span class="trophy-icon">🏆</span>
       <p>{{ guidance.achievement.text }}</p>
     </div>
 
     <!-- Поддержка для мамы -->
     <div v-if="showEncouragement" class="card support">
+      <button class="hint-close" aria-label="Закрыть" @click="hide('encouragement')">×</button>
       <span class="support-icon">💛</span>
       <p>{{ guidance.encouragement.text }}</p>
     </div>
@@ -267,6 +272,7 @@ function toggleRegime() {
         v-for="a in visibleAdvices"
         :key="a.id"
         :advice="a"
+        @close="hide(`advice-${a.id}`)"
       />
     </template>
 
@@ -293,6 +299,7 @@ function toggleRegime() {
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  padding-right: 34px;
   background: var(--c-info-soft);
   border: 1px solid var(--c-info);
 }
@@ -395,9 +402,11 @@ function toggleRegime() {
 .f-value { font-weight: 600; }
 
 .trophy, .support {
+  position: relative;
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  padding-right: 34px;
 }
 
 .trophy {
@@ -418,9 +427,11 @@ function toggleRegime() {
 }
 
 .milestone {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-right: 34px;
   background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface));
   border: 1px solid var(--c-primary);
 }
