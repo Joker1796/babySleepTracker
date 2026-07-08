@@ -10,7 +10,7 @@ const children = useChildrenStore()
 const events = useEventsStore()
 const settings = useSettingsStore()
 
-const tab = ref(null)   // child.id | 'new' | null (авто → первый ребёнок)
+const tab = ref(children.activeChildId)  // child.id | 'new' | null (авто → активный ребёнок)
 const formKey = ref(0)  // ремоунт формы: смена вкладки / сброс правок
 const fileInput = ref(null)
 const message = ref('')
@@ -25,7 +25,7 @@ const themes = [
 
 const showNew = computed(() => tab.value === 'new' || children.children.length === 0)
 const selectedChild = computed(() =>
-  children.children.find(c => c.id === tab.value) || children.children[0] || null
+  children.children.find(c => c.id === tab.value) || children.activeChild
 )
 
 function tabStyle(child) {

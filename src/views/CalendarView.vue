@@ -78,12 +78,14 @@ function dayBase() {
   return (selectedDay.value || dayjs(simNow())).hour(12).minute(0).second(0).millisecond(0).valueOf()
 }
 
-function addForSelected() {
-  sheetModel.value = { isNew: true, type: CALENDAR_TYPE_IDS[0], startedAt: dayBase() }
+// Быстрое добавление по иконке: открываем форму нужного типа на выбранном дне
+// (там можно вписать комментарий, а для роста/веса — число).
+function addType(typeId) {
+  sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase() }
 }
 
-function planNew() {
-  sheetModel.value = { isNew: true, type: CALENDAR_TYPE_IDS[0], startedAt: dayBase(), planned: true }
+function planType(typeId) {
+  sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase(), planned: true }
 }
 
 async function markDone(task) {
@@ -134,8 +136,19 @@ function detailOf(e) {
 
     <div class="card day-card">
       <div class="row day-head">
-        <b class="grow">{{ selectedDay ? selectedDay.format('D MMMM') : 'Выберите день' }}</b>
-        <button class="btn secondary sm" @click="addForSelected">＋ Добавить</button>
+        <b class="grow">{{ selectedDay ? selectedDay.format('D MMMM') : 'Сегодня' }}</b>
+      </div>
+      <div class="add-palette">
+        <button
+          v-for="t in CALENDAR_TYPE_LIST"
+          :key="t.id"
+          class="add-ico"
+          :title="'Добавить: ' + t.label"
+          @click="addType(t.id)"
+        >
+          <span class="ai-emoji">{{ t.icon }}</span>
+          <span class="ai-label">{{ t.btnLabel || t.label }}</span>
+        </button>
       </div>
       <p v-if="selectedDay && !selectedEvents.length" class="muted small empty-note">В этот день событий нет.</p>
       <button v-for="e in selectedEvents" :key="e.id" class="ev-row" @click="sheetModel = e">
@@ -169,9 +182,19 @@ function detailOf(e) {
         <button class="task-act done" @click="markDone(t)" aria-label="Выполнено">✓</button>
         <button class="task-act del" @click="removeTask(t)" aria-label="Удалить">🗑</button>
       </div>
-      <button class="btn secondary block" style="margin-top: 10px" @click="planNew">
-        ＋ Запланировать
-      </button>
+      <div class="tasks-cap">Запланировать:</div>
+      <div class="add-palette">
+        <button
+          v-for="t in CALENDAR_TYPE_LIST"
+          :key="t.id"
+          class="add-ico"
+          :title="'Запланировать: ' + t.label"
+          @click="planType(t.id)"
+        >
+          <span class="ai-emoji">{{ t.icon }}</span>
+          <span class="ai-label">{{ t.btnLabel || t.label }}</span>
+        </button>
+      </div>
     </div>
 
     <EventEditSheet :model="sheetModel" :types="CALENDAR_TYPE_LIST" @close="sheetModel = null" />
@@ -271,9 +294,35 @@ function detailOf(e) {
   margin-bottom: 8px;
 }
 
-.btn.sm {
-  min-height: 36px;
-  padding: 6px 12px;
+.add-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.add-ico {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  min-height: 58px;
+}
+
+.add-ico:active { opacity: 0.7; }
+
+.ai-emoji { font-size: 22px; line-height: 1; }
+
+.ai-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--c-text-soft);
+  text-align: center;
+  line-height: 1.1;
 }
 
 .empty-note { padding: 4px 2px; }
@@ -346,4 +395,11 @@ function detailOf(e) {
 
 .task-act.done { color: var(--c-walk); }
 .task-act.del { color: var(--c-urgent); }
+
+.tasks-cap {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-soft);
+}
 </style>

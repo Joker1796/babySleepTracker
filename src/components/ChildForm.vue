@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useChildrenStore, CHILD_COLORS } from '../stores/children'
 import { GENDERS, FEEDING_TYPES, SLEEP_AIDS } from '../data/childOptions'
@@ -22,6 +22,8 @@ const aids = ref([...(props.child?.aids || [])])
 const mainButtons = ref(getMainButtons(props.child).map(b => ({ ...b })))
 const hideHints = ref(props.child?.hideHints || false)
 const error = ref('')
+const justSaved = ref(false)  // подсветка кнопки «✓ Сохранено» сразу после сохранения
+let savedTimer = null
 
 const today = dayjs().format('YYYY-MM-DD')
 
@@ -31,24 +33,45 @@ function toggleAid(id) {
   else aids.value.splice(i, 1)
 }
 
-function isEnabled(type) {
-  return mainButtons.value.some(b => b.type === type)
+// Строки пикера: «Левая»/«Правая» грудь сводим в один переключатель «Грудь»
+// (в mainButtons при этом по-прежнему лежат оба типа — на главном две кнопки).
+const pickerRows = computed(() =>
+  MAIN_BUTTON_TYPE_LIST
+    .filter(t => t.id !== 'feedRight')
+    .map(t => t.id === 'feedLeft'
+      ? { id: 'breast', icon: '🤱', btnLabel: 'Грудь', kind: 'point', canTime: true, combined: ['feedLeft', 'feedRight'] }
+      : t)
+)
+
+function rowIds(row) {
+  return row.combined || [row.id]
 }
-function toggleType(type) {
-  const i = mainButtons.value.findIndex(b => b.type === type)
-  if (i === -1) {
-    const mode = EVENT_TYPES[type].kind === 'interval' ? 'time' : 'count'
-    mainButtons.value.push({ type, mode })
+function defaultMode(type) {
+  return EVENT_TYPES[type].kind === 'interval' ? 'time' : 'count'
+}
+
+function isEnabled(row) {
+  return rowIds(row).some(id => mainButtons.value.some(b => b.type === id))
+}
+function toggleType(row) {
+  const ids = rowIds(row)
+  if (isEnabled(row)) {
+    mainButtons.value = mainButtons.value.filter(b => !ids.includes(b.type))
   } else {
-    mainButtons.value.splice(i, 1)
+    for (const id of ids) mainButtons.value.push({ type: id, mode: defaultMode(id) })
   }
 }
-function modeOf(type) {
-  return mainButtons.value.find(b => b.type === type)?.mode
+function modeOf(row) {
+  for (const id of rowIds(row)) {
+    const b = mainButtons.value.find(b => b.type === id)
+    if (b) return b.mode
+  }
 }
-function setMode(type, mode) {
-  const b = mainButtons.value.find(b => b.type === type)
-  if (b) b.mode = mode
+function setMode(row, mode) {
+  for (const id of rowIds(row)) {
+    const b = mainButtons.value.find(b => b.type === id)
+    if (b) b.mode = mode
+  }
 }
 
 async function save() {
@@ -71,6 +94,9 @@ async function save() {
     await store.add(data)
   }
   emit('saved')
+  justSaved.value = true
+  clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => { justSaved.value = false }, 1600)
 }
 </script>
 
@@ -111,15 +137,15 @@ async function save() {
     <div class="field">
       <label>Кнопки на главном экране</label>
       <div class="mb-list">
-        <div v-for="t in MAIN_BUTTON_TYPE_LIST" :key="t.id" class="mb-row">
+        <div v-for="t in pickerRows" :key="t.id" class="mb-row">
           <button
             class="chip mb-toggle"
-            :class="{ active: isEnabled(t.id) }"
-            @click="toggleType(t.id)"
+            :class="{ active: isEnabled(t) }"
+            @click="toggleType(t)"
           >{{ t.icon }} {{ t.btnLabel || t.label }}</button>
-          <div v-if="isEnabled(t.id) && (t.kind === 'interval' || t.canTime)" class="mb-modes">
-            <button class="chip sm" :class="{ active: modeOf(t.id) === 'time' }" @click="setMode(t.id, 'time')">Время</button>
-            <button class="chip sm" :class="{ active: modeOf(t.id) === 'count' }" @click="setMode(t.id, 'count')">Кол-во</button>
+          <div v-if="isEnabled(t) && (t.kind === 'interval' || t.canTime)" class="mb-modes">
+            <button class="chip sm" :class="{ active: modeOf(t) === 'time' }" @click="setMode(t, 'time')">Время</button>
+            <button class="chip sm" :class="{ active: modeOf(t) === 'count' }" @click="setMode(t, 'count')">Кол-во</button>
           </div>
         </div>
       </div>
@@ -165,7 +191,9 @@ async function save() {
     <p v-if="error" class="error small">{{ error }}</p>
     <div class="row">
       <button v-if="child" class="btn secondary grow" @click="emit('cancel')">Отмена</button>
-      <button class="btn grow" @click="save">{{ child ? 'Сохранить' : 'Добавить' }}</button>
+      <button class="btn grow" :class="{ ok: justSaved }" @click="save">
+        {{ justSaved ? '✓ Сохранено' : (child ? 'Сохранить' : 'Добавить') }}
+      </button>
     </div>
     <button v-if="child" class="btn danger block delete-btn" @click="emit('delete')">
       🗑 Удалить ребёнка
@@ -174,6 +202,12 @@ async function save() {
 </template>
 
 <style scoped>
+/* Подтверждение сохранения прямо на кнопке */
+.btn.ok {
+  background: var(--c-walk);
+  color: #fff;
+}
+
 .field { margin-bottom: 12px; }
 
 .chips {

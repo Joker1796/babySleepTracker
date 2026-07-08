@@ -206,6 +206,56 @@ export const EVENT_TYPES = {
     softColor: 'var(--c-urgent-soft)',
     hasNote: true,
     notePlaceholder: 'Какая прививка'
+  },
+
+  // ── Измерения и занятия ──
+  height: {
+    id: 'height',
+    label: 'Рост',
+    btnLabel: 'Рост',
+    kind: 'point',
+    icon: '📏',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    amountUnit: 'см',
+    amountAgg: 'last',
+    hasNote: true,
+    notePlaceholder: 'Комментарий'
+  },
+  weight: {
+    id: 'weight',
+    label: 'Вес',
+    btnLabel: 'Вес',
+    kind: 'point',
+    icon: '⚖️',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    amountUnit: 'кг',
+    amountAgg: 'last',
+    hasNote: true,
+    notePlaceholder: 'Комментарий'
+  },
+  pool: {
+    id: 'pool',
+    label: 'Бассейн',
+    btnLabel: 'Бассейн',
+    kind: 'point',
+    icon: '🏊',
+    color: 'var(--c-bath)',
+    softColor: 'var(--c-bath-soft)',
+    hasNote: true,
+    notePlaceholder: 'Комментарий'
+  },
+  club: {
+    id: 'club',
+    label: 'Кружок',
+    btnLabel: 'Кружок',
+    kind: 'point',
+    icon: '🎨',
+    color: 'var(--c-walk)',
+    softColor: 'var(--c-walk-soft)',
+    hasNote: true,
+    notePlaceholder: 'Какой кружок'
   }
 }
 
@@ -216,7 +266,7 @@ export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula']
 
 // Календарные события: отмечаются датой и подсвечиваются во вкладке «Календарь»
 // (на главный экран не выносятся)
-export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine']
+export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club']
 export const CALENDAR_TYPE_LIST = CALENDAR_TYPE_IDS.map(id => EVENT_TYPES[id])
 
 // Типы, доступные в пикере «Кнопки на главном экране» (без сна и без календарных)
