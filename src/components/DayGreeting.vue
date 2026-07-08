@@ -2,10 +2,12 @@
 defineProps({
   greeting: { type: Object, required: true }
 })
+defineEmits(['close'])
 </script>
 
 <template>
   <div class="card greeting">
+    <button class="greet-close" aria-label="Закрыть" @click="$emit('close')">×</button>
     <div class="greet-head">
       <span class="greet-icon">☀️</span>
       <p class="greet-line">{{ greeting.line }}</p>
@@ -34,7 +36,19 @@ defineProps({
 
 <style scoped>
 .greeting {
+  position: relative;
   background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface));
+}
+
+.greet-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--c-text-soft);
 }
 
 .greet-head {

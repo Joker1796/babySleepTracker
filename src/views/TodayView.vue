@@ -4,9 +4,10 @@ import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
+import { useUiStore } from '../stores/ui'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
-import { formatDurationMin, plural } from '../logic/age'
+import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import ChildSwitcher from '../components/ChildSwitcher.vue'
 import SleepButton from '../components/SleepButton.vue'
 import SettlingFlow from '../components/SettlingFlow.vue'
@@ -19,10 +20,17 @@ import QuickTopics from '../components/QuickTopics.vue'
 const children = useChildrenStore()
 const events = useEventsStore()
 const settling = useSettlingStore()
+const ui = useUiStore()
 const now = useNow()
 
 // «Скрывать подсказки» — свой флаг у активного ребёнка
 const hideHints = computed(() => !!children.activeChild?.hideHints)
+
+// Возраст активного ребёнка в месяцах (для скрытия «Быстрых тем» после года)
+const childAgeMonths = computed(() => {
+  const bd = children.activeChild?.birthDate
+  return bd ? ageInMonths(bd, now.value) : null
+})
 
 // Форма события для типов с количеством (смесь мл, температура °C)
 const sheetModel = ref(null)
@@ -111,9 +119,31 @@ const showSleepButton = computed(() =>
   guidance.value && !['settling', 'nap-extension'].includes(guidance.value.phase)
 )
 
+const greetingKey = computed(() => {
+  const id = children.activeChild?.id
+  return id ? `greeting:${id}:${dayjs(now.value).format('YYYY-MM-DD')}` : null
+})
 const showGreeting = computed(() =>
-  guidance.value?.greeting && !hideHints.value
+  guidance.value?.greeting && !hideHints.value &&
+  greetingKey.value && !ui.isDismissed(greetingKey.value)
 )
+function closeGreeting() {
+  if (greetingKey.value) ui.dismiss(greetingKey.value)
+}
+
+// Подсказка «настройте под ребёнка» — пока не заданы «помощники сна» и не закрыта
+const aidsHintKey = computed(() => {
+  const id = children.activeChild?.id
+  return id ? `aids-hint:${id}` : null
+})
+const showAidsHint = computed(() =>
+  !!children.activeChild &&
+  !(children.activeChild.aids && children.activeChild.aids.length) &&
+  aidsHintKey.value && !ui.isDismissed(aidsHintKey.value)
+)
+function closeAidsHint() {
+  if (aidsHintKey.value) ui.dismiss(aidsHintKey.value)
+}
 
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
 // они доступны в разделе «Советы». Оставляем только ситуативные.
@@ -158,7 +188,17 @@ function toggleRegime() {
       <p>{{ guidance.milestone.text }}</p>
     </div>
 
-    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" />
+    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @close="closeGreeting" />
+
+    <!-- Подсказка: настроить помощники сна под ребёнка -->
+    <div v-if="showAidsHint" class="card aids-hint">
+      <button class="hint-close" aria-label="Закрыть" @click="closeAidsHint">×</button>
+      <span class="hint-icon">⚙️</span>
+      <div class="grow">
+        <p class="hint-text">Настройте под ребёнка: укачивание, соска, блэкаут и другое — подсказки станут точнее.</p>
+        <router-link to="/settings" class="hint-link">Открыть настройки →</router-link>
+      </div>
+    </div>
 
     <div v-if="advice" class="card status-card">
       <div class="row">
@@ -230,9 +270,11 @@ function toggleRegime() {
       />
     </template>
 
-    <!-- Быстрые темы-справки -->
-    <div class="card-title" style="margin-top: 4px">Быстрые темы</div>
-    <QuickTopics />
+    <!-- Быстрые темы-справки (для детей до года) -->
+    <template v-if="childAgeMonths == null || childAgeMonths < 12">
+      <div class="card-title" style="margin-top: 4px">Быстрые темы</div>
+      <QuickTopics />
+    </template>
 
     <Transition name="fade">
       <div v-if="toast" class="toast">{{ toast }}</div>
@@ -244,6 +286,38 @@ function toggleRegime() {
 
 <style scoped>
 .status-card { padding-bottom: 12px; }
+
+/* Подсказка про настройки под ребёнка */
+.aids-hint {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--c-info-soft);
+  border: 1px solid var(--c-info);
+}
+
+.hint-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--c-text-soft);
+}
+
+.hint-icon { font-size: 24px; }
+
+.hint-text { margin: 0 0 6px; font-size: 14px; }
+
+.hint-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-primary);
+  text-decoration: none;
+}
 
 .extend-btn { margin-bottom: 12px; }
 

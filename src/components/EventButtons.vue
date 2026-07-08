@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow, simNow } from '../composables/useNow'
-import { formatDurationMin } from '../logic/age'
+import { formatDurationMin, ageInMonths } from '../logic/age'
 import { poopVerb } from '../logic/gender'
 import { dayCount } from '../logic/eventStats'
 import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, FEEDING_TYPE_IDS, getMainButtons } from '../data/eventTypes'
@@ -19,8 +19,16 @@ const now = useNow()
 // Кормление (если выбрано) всегда идёт первым, в порядке Левая/Правая/Смесь.
 const mainIds = new Set(MAIN_BUTTON_TYPE_LIST.map(t => t.id))
 const feedingSet = new Set(FEEDING_TYPE_IDS)
+const ageM = computed(() => {
+  const bd = children.activeChild?.birthDate
+  return bd ? ageInMonths(bd, now.value) : null
+})
 const mainButtons = computed(() => {
-  const list = getMainButtons(children.activeChild).filter(b => mainIds.has(b.type))
+  const age = ageM.value
+  const list = getMainButtons(children.activeChild).filter(b =>
+    mainIds.has(b.type) &&
+    (age == null || EVENT_TYPES[b.type]?.minAgeM == null || age >= EVENT_TYPES[b.type].minAgeM)
+  )
   const feeds = FEEDING_TYPE_IDS.map(id => list.find(b => b.type === id)).filter(Boolean)
   const rest = list.filter(b => !feedingSet.has(b.type))
   return [...feeds, ...rest]

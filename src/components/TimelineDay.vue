@@ -5,7 +5,7 @@ import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { EVENT_TYPES, eventKind } from '../data/eventTypes'
-import { formatDurationMin } from '../logic/age'
+import { formatDurationMin, plural } from '../logic/age'
 import { poopVerb } from '../logic/gender'
 
 const props = defineProps({
@@ -18,10 +18,30 @@ const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
 
+// Порядковые номера снов за день (для подписи «Сон N»)
+const napNo = computed(() => {
+  const map = {}
+  let n = 0
+  for (const e of dayEvents.value) {
+    if (e.type === 'sleep') { n++; map[e.id] = n }
+  }
+  return map
+})
+
 // Название события; глаголы склоняем по полу ребёнка
 function labelOf(e) {
   if (e.type === 'poop') return poopVerb(children.activeChild?.gender)
+  if (e.type === 'sleep' && napNo.value[e.id]) return `Сон ${napNo.value[e.id]}`
   return typeOf(e).label
+}
+
+// Подпись для события «Зубы»: сколько зубов отмечено
+function teethLabel(e) {
+  if (e.type === 'teeth' && Array.isArray(e.teeth) && e.teeth.length) {
+    const n = e.teeth.length
+    return `🦷 ${n} ${plural(n, 'зуб', 'зуба', 'зубов')}`
+  }
+  return ''
 }
 
 const dayEvents = computed(() => {
@@ -76,7 +96,7 @@ function amountLabel(e) {
           {{ labelOf(e) }}
           <span v-if="e.endedAt == null && eventKind(e) === 'interval'" class="ongoing">идёт</span>
         </span>
-        <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template><template v-if="amountLabel(e)"> · {{ amountLabel(e) }}</template></span>
+        <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template><template v-if="amountLabel(e)"> · {{ amountLabel(e) }}</template><template v-if="teethLabel(e)"> · {{ teethLabel(e) }}</template></span>
         <span v-if="e.note" class="tl-note muted">{{ e.note }}</span>
       </span>
       <span v-if="editable" class="tl-chevron muted">›</span>

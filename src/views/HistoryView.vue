@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
@@ -73,9 +73,10 @@ const showSummary = ref(false)
 const days = ref(7)
 const showStats = ref(false)
 
+// Текущий день не включаем — статистика по завершённым дням (вчера и назад)
 const stats = computed(() => {
   const result = []
-  for (let i = days.value - 1; i >= 0; i--) {
+  for (let i = days.value; i >= 1; i--) {
     const ts = dayjs(now.value).startOf('day').subtract(i, 'day').valueOf()
     result.push({ dayTs: ts, ...analyzeDay(events.sorted, ts, now.value) })
   }
@@ -145,11 +146,89 @@ const avgVerdict = computed(() => {
   return 'Суммарный сон в пределах возрастной нормы — отличная работа!'
 })
 
-// ── Расписание на завтра ──
+// ── Метрика статистики: сон или один из реально отмеченных типов событий ──
+const metric = ref('sleep')
+const usedEventTypes = computed(() => {
+  const present = new Set(events.sorted.filter(e => !e.planned && e.type !== 'sleep').map(e => e.type))
+  return NON_SLEEP_TYPE_LIST.filter(t => present.has(t.id))
+})
+const metricDef = computed(() => metric.value === 'sleep' ? null : EVENT_TYPES[metric.value])
+
+function eventValueForDay(type, ts) {
+  const def = EVENT_TYPES[type]
+  if (def?.amountUnit && def.amountAgg === 'sum') {
+    const d = dayjs(ts)
+    return events.sorted
+      .filter(e => e.type === type && !e.planned && dayjs(e.startedAt).isSame(d, 'day'))
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0)
+  }
+  if (def?.kind === 'interval') return dayTotalMin(events.sorted, type, ts, now.value)
+  return dayCount(events.sorted, type, ts)
+}
+
+const eventUnit = computed(() => {
+  const def = metricDef.value
+  if (!def) return ''
+  if (def.amountUnit && def.amountAgg === 'sum') return def.amountUnit
+  if (def.kind === 'interval') return 'мин'
+  return 'раз'
+})
+
+const eventSeries = computed(() =>
+  metric.value === 'sleep' ? [] : stats.value.map(d => ({ dayTs: d.dayTs, value: eventValueForDay(metric.value, d.dayTs) }))
+)
+const eventMax = computed(() => Math.max(1, ...eventSeries.value.map(s => s.value)))
+const eventBars = computed(() => {
+  const n = eventSeries.value.length || 1
+  const slot = chartW / n
+  const barW = Math.min(slot * 0.62, 30)
+  return eventSeries.value.map((s, i) => {
+    const h = (s.value / eventMax.value) * chartH
+    return {
+      x: PAD.left + slot * i + (slot - barW) / 2,
+      barW,
+      y: PAD.top + chartH - h,
+      hpx: h,
+      label: dayjs(s.dayTs).format('D.MM'),
+      value: s.value
+    }
+  })
+})
+const eventAvg = computed(() => {
+  const withData = eventSeries.value.filter(s => s.value > 0)
+  if (!withData.length) return null
+  return Math.round((withData.reduce((s, d) => s + d.value, 0) / withData.length) * 10) / 10
+})
+
+// Если выбранный тип события исчез из данных — вернуться к «Сон»
+watch(usedEventTypes, (list) => {
+  if (metric.value !== 'sleep' && !list.some(t => t.id === metric.value)) metric.value = 'sleep'
+})
+
+// ── Расписание дня ──
 const showSchedule = ref(false)
 // Выбор начала/конца дня (строки HH:MM). null → берётся из профиля.
+// Ручной выбор сохраняется пер-ребёнок и переживает переход по вкладкам.
 const wakeStr = ref(null)
 const bedStr = ref(null)
+
+function overKey(id) { return `schedOverride:${id}` }
+function loadOverride(id) {
+  try { return JSON.parse(localStorage.getItem(overKey(id))) || null } catch { return null }
+}
+function applyOverrideForChild() {
+  const id = children.activeChild?.id
+  const ov = id ? loadOverride(id) : null
+  wakeStr.value = ov?.wake ?? null
+  bedStr.value = ov?.bed ?? null
+}
+function saveSchedOverride() {
+  const id = children.activeChild?.id
+  if (!id) return
+  localStorage.setItem(overKey(id), JSON.stringify({ wake: wakeStr.value, bed: bedStr.value }))
+}
+applyOverrideForChild()
+watch(() => children.activeChild?.id, applyOverrideForChild)
 
 const profile = computed(() =>
   scheduleProfile(events.sorted, now.value, days.value, children.activeChild)
@@ -277,13 +356,13 @@ function addEvent() {
       <TimelineDay :day-ts="dayTs" @edit="e => (sheetModel = e)" />
     </div>
 
-    <!-- Расписание на завтра -->
+    <!-- Распорядок дня -->
     <button v-if="!showSchedule" class="btn block schedule-open" @click="openSchedule">
-      🗓️ Построить расписание на завтра
+      🗓️ Построить распорядок дня
     </button>
 
     <div v-if="showSchedule" class="card schedule">
-      <div class="card-title">Примерный распорядок на завтра</div>
+      <div class="card-title">Распорядок дня</div>
       <p class="muted small src-note">
         {{ schedule.source === 'history'
           ? `На основе средних за ${schedule.daysCounted} ${plural(schedule.daysCounted, 'день', 'дня', 'дней')} с данными`
@@ -293,11 +372,11 @@ function addEvent() {
       <div class="day-bounds">
         <label class="bound">
           <span>Начало дня</span>
-          <input v-model="wakeStr" type="time" />
+          <input v-model="wakeStr" type="time" @change="saveSchedOverride" />
         </label>
         <label class="bound">
           <span>Конец дня</span>
-          <input v-model="bedStr" type="time" />
+          <input v-model="bedStr" type="time" @change="saveSchedOverride" />
         </label>
       </div>
 
@@ -360,9 +439,13 @@ function addEvent() {
     </button>
 
     <template v-if="showStats">
-      <div class="card-title stats-title">Статистика сна</div>
-      <p class="muted small stats-note">Сон по дням и средние за выбранный период.</p>
-      <div class="row" style="margin-bottom: 12px">
+      <div class="card-title stats-title">Статистика</div>
+      <p class="muted small stats-note">По дням и средние за период (текущий день не учитывается).</p>
+      <div class="row stats-controls">
+        <select v-model="metric" class="period-select">
+          <option value="sleep">😴 Сон</option>
+          <option v-for="t in usedEventTypes" :key="t.id" :value="t.id">{{ t.icon }} {{ t.label }}</option>
+        </select>
         <select v-model.number="days" class="period-select">
           <option :value="7">7 дней</option>
           <option :value="14">14 дней</option>
@@ -370,44 +453,65 @@ function addEvent() {
         </select>
       </div>
 
-      <div class="card">
-        <div class="card-title">Сон по дням, часы</div>
-        <svg :viewBox="`0 0 ${W} ${H}`" class="chart">
-          <g v-for="line in gridLines" :key="line.h">
-            <line :x1="PAD.left" :x2="W - PAD.right" :y1="line.y" :y2="line.y" class="grid" />
-            <text :x="PAD.left - 5" :y="line.y + 3" class="axis">{{ line.h }}</text>
-          </g>
+      <!-- Сон -->
+      <template v-if="metric === 'sleep'">
+        <div class="card">
+          <div class="card-title">Сон по дням, часы</div>
+          <svg :viewBox="`0 0 ${W} ${H}`" class="chart">
+            <g v-for="line in gridLines" :key="line.h">
+              <line :x1="PAD.left" :x2="W - PAD.right" :y1="line.y" :y2="line.y" class="grid" />
+              <text :x="PAD.left - 5" :y="line.y + 3" class="axis">{{ line.h }}</text>
+            </g>
 
-          <template v-if="norms">
-            <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[0] / 60)" :y2="y(norms.totalSleep[0] / 60)" class="norm" />
-            <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[1] / 60)" :y2="y(norms.totalSleep[1] / 60)" class="norm" />
-          </template>
+            <template v-if="norms">
+              <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[0] / 60)" :y2="y(norms.totalSleep[0] / 60)" class="norm" />
+              <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[1] / 60)" :y2="y(norms.totalSleep[1] / 60)" class="norm" />
+            </template>
 
-          <g v-for="(b, i) in bars" :key="i">
-            <rect :x="b.x" :y="b.nightY" :width="b.barW" :height="b.nightHpx" rx="3" fill="var(--c-night-bar)" />
-            <rect :x="b.x" :y="b.dayY" :width="b.barW" :height="b.dayHpx" rx="3" fill="var(--c-day-bar)" />
-            <text v-if="i % labelStep === 0" :x="b.x + b.barW / 2" :y="H - 8" class="axis" text-anchor="middle">{{ b.label }}</text>
-          </g>
-        </svg>
-        <div class="legend">
-          <span class="leg-item"><span class="leg-dot" style="background: var(--c-night-bar)"></span>ночь</span>
-          <span class="leg-item"><span class="leg-dot" style="background: var(--c-day-bar)"></span>день</span>
-          <span class="leg-item"><span class="leg-line"></span>норма</span>
+            <g v-for="(b, i) in bars" :key="i">
+              <rect :x="b.x" :y="b.nightY" :width="b.barW" :height="b.nightHpx" rx="3" fill="var(--c-night-bar)" />
+              <rect :x="b.x" :y="b.dayY" :width="b.barW" :height="b.dayHpx" rx="3" fill="var(--c-day-bar)" />
+              <text v-if="i % labelStep === 0" :x="b.x + b.barW / 2" :y="H - 8" class="axis" text-anchor="middle">{{ b.label }}</text>
+            </g>
+          </svg>
+          <div class="legend">
+            <span class="leg-item"><span class="leg-dot" style="background: var(--c-night-bar)"></span>ночь</span>
+            <span class="leg-item"><span class="leg-dot" style="background: var(--c-day-bar)"></span>день</span>
+            <span class="leg-item"><span class="leg-line"></span>норма</span>
+          </div>
         </div>
-      </div>
 
-      <div v-if="avg" class="card">
-        <div class="card-title">В среднем за {{ avg.daysCounted }} дн. с данными</div>
-        <div class="avg-row"><span>Всего сна в сутки</span><b>{{ formatDurationMin(avg.total) }}</b></div>
-        <div class="avg-row"><span>Дневной сон</span><b>{{ formatDurationMin(avg.day) }}</b></div>
-        <div class="avg-row"><span>Дневных снов</span><b>{{ avg.naps }}</b></div>
-        <div v-if="norms" class="avg-row"><span>Норма всего</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
-        <p class="muted small" style="margin-top: 8px">{{ avgVerdict }}</p>
-      </div>
+        <div v-if="avg" class="card">
+          <div class="card-title">В среднем за {{ avg.daysCounted }} дн. с данными</div>
+          <div class="avg-row"><span>Всего сна в сутки</span><b>{{ formatDurationMin(avg.total) }}</b></div>
+          <div class="avg-row"><span>Дневной сон</span><b>{{ formatDurationMin(avg.day) }}</b></div>
+          <div class="avg-row"><span>Дневных снов</span><b>{{ avg.naps }}</b></div>
+          <div v-if="norms" class="avg-row"><span>Норма всего</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
+          <p class="muted small" style="margin-top: 8px">{{ avgVerdict }}</p>
+        </div>
 
-      <p v-else class="muted small" style="text-align: center">
-        Пока нет данных — отмечайте сон на главном экране, и здесь появится картина недели.
-      </p>
+        <p v-else class="muted small" style="text-align: center">
+          Пока нет данных — отмечайте сон на главном экране, и здесь появится картина недели.
+        </p>
+      </template>
+
+      <!-- Другое событие -->
+      <template v-else>
+        <div class="card">
+          <div class="card-title">{{ metricDef?.label }} по дням, {{ eventUnit }}</div>
+          <svg :viewBox="`0 0 ${W} ${H}`" class="chart">
+            <line :x1="PAD.left" :x2="W - PAD.right" :y1="PAD.top + chartH" :y2="PAD.top + chartH" class="grid" />
+            <g v-for="(b, i) in eventBars" :key="i">
+              <rect :x="b.x" :y="b.y" :width="b.barW" :height="b.hpx" rx="3" :fill="metricDef?.color || 'var(--c-primary)'" />
+              <text v-if="i % labelStep === 0" :x="b.x + b.barW / 2" :y="H - 8" class="axis" text-anchor="middle">{{ b.label }}</text>
+            </g>
+          </svg>
+          <p v-if="eventAvg != null" class="muted small" style="text-align: center; margin-top: 6px">
+            В среднем {{ eventAvg }} {{ eventUnit }}/день
+          </p>
+          <p v-else class="muted small" style="text-align: center">Нет отметок за период.</p>
+        </div>
+      </template>
     </template>
 
     <EventEditSheet :model="sheetModel" :types="NON_CALENDAR_TYPE_LIST" @close="sheetModel = null" />
@@ -569,6 +673,8 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
 .stats-title { margin-bottom: 2px; }
 
 .stats-note { margin: 0 0 10px; }
+
+.stats-controls { margin-bottom: 12px; }
 
 .day-bounds {
   display: flex;

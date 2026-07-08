@@ -1,9 +1,13 @@
 <script setup>
 import { computed } from 'vue'
+import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
+import { useNow } from '../composables/useNow'
 import { sleepVerb } from '../logic/gender'
+import { formatDurationMin } from '../logic/age'
+import { EVENT_TYPES, CALENDAR_TYPE_IDS } from '../data/eventTypes'
 import WakeChecklist from './WakeChecklist.vue'
 
 const props = defineProps({
@@ -15,10 +19,43 @@ const events = useEventsStore()
 const settling = useSettlingStore()
 const children = useChildrenStore()
 
+const now = useNow()
 const childId = computed(() => children.activeChild?.id)
 const phase = computed(() => props.guidance.phase)
 // «Уснул/Уснула» — по полу ребёнка из профиля
 const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
+
+// Запланированные события календаря активного ребёнка (будущие и сегодняшние) —
+// показываем в блоке «Чем заняться» с временем.
+const plannedEvents = computed(() => {
+  if (phase.value !== 'active') return []
+  const todayStart = dayjs(now.value).startOf('day').valueOf()
+  return events.sorted
+    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type) && e.startedAt >= todayStart)
+    .sort((a, b) => a.startedAt - b.startedAt)
+})
+
+// Напоминание за 2 часа: только при нескольких детях и о ближайшем событии ≤ 2 ч
+const soonEvent = computed(() => {
+  if (children.children.length < 2) return null
+  const from = now.value
+  const to = from + 2 * 60 * 60 * 1000
+  const ev = plannedEvents.value.find(e => e.startedAt >= from && e.startedAt <= to)
+  if (!ev) return null
+  return {
+    icon: EVENT_TYPES[ev.type]?.icon || '📌',
+    label: EVENT_TYPES[ev.type]?.label || ev.type,
+    hhmm: dayjs(ev.startedAt).format('HH:mm'),
+    inMin: Math.round((ev.startedAt - from) / 60000)
+  }
+})
+
+function evTime(e) {
+  return dayjs(e.startedAt).format('D MMM, HH:mm')
+}
+function evOverdue(e) {
+  return e.startedAt < now.value
+}
 
 const tone = computed(() => {
   if (phase.value === 'time-to-sleep') return 'urgent'
@@ -72,6 +109,21 @@ function stopExtension() {
       :items="guidance.wakeChecklist"
       :wake-since="guidance.wakeSince"
     />
+
+    <!-- Напоминание за 2 часа (при нескольких детях) -->
+    <div v-if="soonEvent" class="soon-alert">
+      🔔 Через ~{{ formatDurationMin(soonEvent.inMin) }}: {{ soonEvent.icon }} {{ soonEvent.label }} ({{ soonEvent.hhmm }}) — планируйте бодрствование.
+    </div>
+
+    <!-- Запланированные события из «Календаря» со временем -->
+    <div v-if="plannedEvents.length" class="plan-block">
+      <div class="plan-cap">🗓️ Из календаря</div>
+      <div v-for="e in plannedEvents" :key="e.id" class="plan-line">
+        <span class="plan-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
+        <span class="grow plan-name">{{ EVENT_TYPES[e.type]?.label || e.type }}<template v-if="e.note"> · {{ e.note }}</template></span>
+        <span class="plan-date small" :class="evOverdue(e) ? 'overdue' : 'muted'">{{ evTime(e) }}</span>
+      </div>
+    </div>
 
     <!-- Продление сна: шаги алгоритма -->
     <template v-if="phase === 'nap-extension'">
@@ -158,6 +210,46 @@ function stopExtension() {
 .steps li { margin-bottom: 8px; }
 
 .start-btn { margin-top: 6px; }
+
+/* Напоминание за 2 часа */
+.soon-alert {
+  margin: 6px 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--c-warn-soft);
+  border: 1px solid var(--c-warn);
+  color: var(--c-warn);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* События из календаря */
+.plan-block { margin: 4px 0 10px; }
+
+.plan-cap {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-text-soft);
+  margin-bottom: 6px;
+}
+
+.plan-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.plan-line:last-child { border-bottom: none; }
+
+.plan-ico { font-size: 18px; }
+
+.plan-name { font-size: 14px; font-weight: 500; }
+
+.plan-date { flex-shrink: 0; }
+
+.overdue { color: var(--c-urgent); }
 
 .two-btn { gap: 10px; margin-top: 8px; }
 

@@ -2,8 +2,11 @@
 import { ref, watch, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
-import { simNow } from '../composables/useNow'
-import { EVENT_TYPES, EVENT_TYPE_LIST, eventKind } from '../data/eventTypes'
+import { useChildrenStore } from '../stores/children'
+import { useNow, simNow } from '../composables/useNow'
+import { ageInMonths } from '../logic/age'
+import { EVENT_TYPES, EVENT_TYPE_LIST, eventKind, typesForAge } from '../data/eventTypes'
+import ToothChart from './ToothChart.vue'
 
 // model: null (закрыт) | { isNew: true, type?, startedAt? } | существующее событие
 const props = defineProps({
@@ -16,6 +19,13 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const events = useEventsStore()
+const children = useChildrenStore()
+const now = useNow()
+
+const childAgeM = computed(() => {
+  const bd = children.activeChild?.birthDate
+  return bd ? ageInMonths(bd, now.value) : null
+})
 
 // Последнее использование каждого типа (по времени начала события)
 const lastUsed = computed(() => {
@@ -26,10 +36,10 @@ const lastUsed = computed(() => {
   return last
 })
 
-// Список типов в выпадашке: недавно использованные — первыми,
-// остальные сохраняют порядок реестра (стабильная сортировка).
+// Список типов в выпадашке: недоступные по возрасту скрыты; недавно
+// использованные — первыми, остальные сохраняют порядок реестра.
 const typeOptions = computed(() => {
-  const base = props.types || EVENT_TYPE_LIST
+  const base = typesForAge(props.types || EVENT_TYPE_LIST, childAgeM.value)
   const last = lastUsed.value
   return [...base].sort((a, b) => {
     const la = last[a.id], lb = last[b.id]
@@ -63,7 +73,8 @@ watch(() => props.model, m => {
     hasEnd: m.endedAt != null,
     note: m.note || '',
     amount: m.amount ?? null,
-    planned: !!m.planned
+    planned: !!m.planned,
+    teeth: Array.isArray(m.teeth) ? [...m.teeth] : []
   }
 }, { immediate: true })
 
@@ -96,6 +107,7 @@ async function save() {
     ? Number(f.amount)
     : null
   const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value, amount, planned: !!f.planned }
+  if (f.type === 'teeth') data.teeth = [...f.teeth]
   if (f.isNew) await events.add(data)
   else await events.update({ ...props.model, ...data })
   emit('close')
@@ -151,6 +163,11 @@ async function remove() {
           <div v-if="typeDef.amountUnit" class="field">
             <label>Количество, {{ typeDef.amountUnit }}</label>
             <input v-model="form.amount" type="number" step="0.1" min="0" inputmode="decimal" />
+          </div>
+
+          <div v-if="form.type === 'teeth'" class="field">
+            <label>Прорезавшиеся зубы <span class="muted small">· {{ form.teeth.length }}</span></label>
+            <ToothChart v-model="form.teeth" />
           </div>
 
           <div class="field">

@@ -2,8 +2,9 @@
 import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useChildrenStore, CHILD_COLORS } from '../stores/children'
+import { ageInMonths } from '../logic/age'
 import { GENDERS, FEEDING_TYPES, SLEEP_AIDS } from '../data/childOptions'
-import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, getMainButtons } from '../data/eventTypes'
+import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, getMainButtons, typesForAge } from '../data/eventTypes'
 
 const props = defineProps({
   child: { type: Object, default: null }
@@ -35,8 +36,9 @@ function toggleAid(id) {
 
 // Строки пикера: «Левая»/«Правая» грудь сводим в один переключатель «Грудь»
 // (в mainButtons при этом по-прежнему лежат оба типа — на главном две кнопки).
+const ageM = computed(() => birthDate.value ? ageInMonths(birthDate.value) : null)
 const pickerRows = computed(() =>
-  MAIN_BUTTON_TYPE_LIST
+  typesForAge(MAIN_BUTTON_TYPE_LIST, ageM.value)
     .filter(t => t.id !== 'feedRight')
     .map(t => t.id === 'feedLeft'
       ? { id: 'breast', icon: '🤱', btnLabel: 'Грудь', kind: 'point', canTime: true, combined: ['feedLeft', 'feedRight'] }

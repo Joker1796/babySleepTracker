@@ -49,6 +49,18 @@ export const EVENT_TYPES = {
     amountUnit: 'мл',
     amountAgg: 'sum'
   },
+  food: {
+    id: 'food',
+    label: 'Еда',
+    btnLabel: 'Еда',
+    kind: 'point',
+    icon: '🥣',
+    color: 'var(--c-warn)',
+    softColor: 'var(--c-warn-soft)',
+    hasNote: true,
+    notePlaceholder: 'Что ел(а)',
+    minAgeM: 4 // прикорм — с 4 месяцев
+  },
 
   // ── Активность ──
   walk: {
@@ -153,6 +165,17 @@ export const EVENT_TYPES = {
     icon: '💩',
     color: 'var(--c-walk)',
     softColor: 'var(--c-walk-soft)'
+  },
+  teeth: {
+    id: 'teeth',
+    label: 'Зубы',
+    btnLabel: 'Зубы',
+    kind: 'point',
+    icon: '🦷',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    hasNote: true,
+    notePlaceholder: 'Заметка'
   },
   temperature: {
     id: 'temperature',
@@ -295,4 +318,10 @@ export function getMainButtons(child) {
 // «Эффективный вид» события: сохранённый на записи kind, иначе — из реестра типов
 export function eventKind(e) {
   return e?.kind ?? EVENT_TYPES[e?.type]?.kind ?? 'point'
+}
+
+// Отфильтровать типы по возрасту ребёнка (мес): скрыть те, у кого minAgeM больше.
+export function typesForAge(list, ageM) {
+  if (ageM == null) return list
+  return list.filter(t => t.minAgeM == null || ageM >= t.minAgeM)
 }
