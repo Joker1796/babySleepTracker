@@ -1,8 +1,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
+import { useIllnessStore } from '../stores/illness'
 import { useSettlingStore } from '../stores/settling'
 import { useUiStore } from '../stores/ui'
 import { useNow } from '../composables/useNow'
@@ -20,9 +22,17 @@ import QuickTopics from '../components/QuickTopics.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
+const illness = useIllnessStore()
 const settling = useSettlingStore()
 const ui = useUiStore()
 const now = useNow()
+const router = useRouter()
+
+// «Ваш ребёнок заболел?» — начинаем болезнь (если ещё не идёт) и открываем вкладку
+async function startIllness() {
+  if (!illness.hasActive) await illness.start()
+  router.push('/illness')
+}
 
 // «Скрывать подсказки» — свой флаг у активного ребёнка
 const hideHints = computed(() => !!children.activeChild?.hideHints)
@@ -279,6 +289,16 @@ function toggleRegime() {
       />
     </template>
 
+    <!-- Режим «Болезнь»: кнопка запуска или ссылка на активную вкладку -->
+    <button v-if="!illness.hasActive" class="btn block sick-btn" @click="startIllness">
+      🤒 Ваш ребёнок заболел?
+    </button>
+    <router-link v-else to="/illness" class="card sick-active">
+      <span class="sick-icon">🤒</span>
+      <span class="grow">Малыш болеет — открыть вкладку «Болезнь»</span>
+      <span class="sick-arrow">›</span>
+    </router-link>
+
     <!-- Быстрые темы-справки (для детей до года) -->
     <template v-if="childAgeMonths == null || childAgeMonths < 12">
       <div class="card-title" style="margin-top: 4px">Быстрые темы</div>
@@ -440,6 +460,27 @@ function toggleRegime() {
 }
 
 .ms-icon { font-size: 30px; }
+
+/* Кнопка «Ваш ребёнок заболел?» и ссылка на активную болезнь */
+.sick-btn {
+  margin-bottom: 12px;
+  background: var(--c-urgent-soft);
+  color: var(--c-urgent);
+  border: 1px solid var(--c-urgent);
+}
+
+.sick-active {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--c-text);
+  border: 1px solid var(--c-urgent);
+  background: var(--c-urgent-soft);
+}
+
+.sick-icon { font-size: 22px; }
+.sick-arrow { font-size: 22px; color: var(--c-urgent); }
 
 .milestone p {
   margin: 0;

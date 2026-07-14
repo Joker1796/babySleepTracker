@@ -74,7 +74,10 @@ watch(() => props.model, m => {
     note: m.note || '',
     amount: m.amount ?? null,
     planned: !!m.planned,
-    teeth: Array.isArray(m.teeth) ? [...m.teeth] : []
+    teeth: Array.isArray(m.teeth) ? [...m.teeth] : [],
+    // Контекст болезни: сохраняем для точного матчинга напоминаний (см. logic/illness)
+    illnessId: m.illnessId ?? null,
+    medId: m.medId ?? null
   }
 }, { immediate: true })
 
@@ -108,6 +111,8 @@ async function save() {
     : null
   const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value, amount, planned: !!f.planned }
   if (f.type === 'teeth') data.teeth = [...f.teeth]
+  if (f.illnessId != null) data.illnessId = f.illnessId
+  if (f.medId != null) data.medId = f.medId
   if (f.isNew) await events.add(data)
   else await events.update({ ...props.model, ...data })
   emit('close')

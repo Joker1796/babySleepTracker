@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
+import { useIllnessStore } from '../stores/illness'
 
 const children = useChildrenStore()
+const illness = useIllnessStore()
 
 const items = computed(() => {
   const base = [
@@ -13,6 +15,10 @@ const items = computed(() => {
   // Вкладка «Режим» — только когда включён настраиваемый режим
   if (children.activeChild?.regime?.mode === 'custom') {
     base.push({ to: '/regime', icon: '🎛️', label: 'Режим' })
+  }
+  // Вкладка «Болезнь» — только пока малыш болеет
+  if (illness.hasActive) {
+    base.push({ to: '/illness', icon: '🤒', label: 'Болезнь' })
   }
   base.push({ to: '/settings', icon: '⚙️', label: 'Ещё' })
   return base

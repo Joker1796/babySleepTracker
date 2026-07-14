@@ -199,6 +199,31 @@ export const EVENT_TYPES = {
     hasNote: true,
     notePlaceholder: 'Название и доза'
   },
+
+  // ── Болезнь ── (логируются только с экрана «Болезнь», в пользовательских
+  // пикерах не показываются — см. context: 'illness')
+  water: {
+    id: 'water',
+    label: 'Питьё',
+    btnLabel: 'Питьё',
+    kind: 'point',
+    icon: '💧',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    context: 'illness'
+  },
+  condition: {
+    id: 'condition',
+    label: 'Состояние',
+    btnLabel: 'Состояние',
+    kind: 'point',
+    icon: '🩹',
+    color: 'var(--c-primary)',
+    softColor: 'var(--c-primary-soft)',
+    hasNote: true,
+    notePlaceholder: 'Самочувствие',
+    context: 'illness'
+  },
   vitaminD: {
     id: 'vitaminD',
     label: 'Витамин D',
@@ -292,17 +317,20 @@ export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula', 'food']
 export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club', 'teeth']
 export const CALENDAR_TYPE_LIST = CALENDAR_TYPE_IDS.map(id => EVENT_TYPES[id])
 
-// Типы, доступные в пикере «Кнопки на главном экране» (без сна и без календарных)
+// Типы, доступные в пикере «Кнопки на главном экране» (без сна, без календарных
+// и без «болезненных» — те логируются только с экрана «Болезнь»)
 export const MAIN_BUTTON_TYPE_LIST = EVENT_TYPE_LIST.filter(
-  t => t.id !== 'sleep' && !CALENDAR_TYPE_IDS.includes(t.id)
+  t => t.id !== 'sleep' && !CALENDAR_TYPE_IDS.includes(t.id) && t.context !== 'illness'
 )
 
 // Все события, кроме сна — для строк плашки «Истории» (в порядке реестра)
 export const NON_SLEEP_TYPE_LIST = EVENT_TYPE_LIST.filter(t => t.id !== 'sleep')
 
-// Типы для добавления события в «Истории» — без календарных
+// Типы для добавления события в «Истории» — без календарных и без «болезненных»
 // (врач/прививки/витамин D/ногти/лекарство добавляются только в «Календаре»)
-export const NON_CALENDAR_TYPE_LIST = EVENT_TYPE_LIST.filter(t => !CALENDAR_TYPE_IDS.includes(t.id))
+export const NON_CALENDAR_TYPE_LIST = EVENT_TYPE_LIST.filter(
+  t => !CALENDAR_TYPE_IDS.includes(t.id) && t.context !== 'illness'
+)
 
 // Набор кнопок по умолчанию
 export const DEFAULT_MAIN_BUTTONS = [
