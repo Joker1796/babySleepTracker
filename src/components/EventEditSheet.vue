@@ -60,6 +60,16 @@ function localToTs(str) {
   return str ? dayjs(str).valueOf() : null
 }
 
+// Числовое значение (температура, мл, рост, вес): принимаем и точку, и запятую
+// (на русской раскладке десятичный разделитель — запятая). '' → null.
+function parseAmount(v) {
+  if (v == null) return null
+  const s = String(v).trim().replace(',', '.')
+  if (s === '') return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : NaN
+}
+
 watch(() => props.model, m => {
   error.value = ''
   if (!m) { form.value = null; return }
@@ -106,9 +116,8 @@ async function save() {
   if (!startedAt) { error.value = 'Укажите время начала'; return }
   if (endedAt != null && endedAt <= startedAt) { error.value = 'Окончание должно быть позже начала'; return }
 
-  const amount = typeDef.value.amountUnit && f.amount !== '' && f.amount != null
-    ? Number(f.amount)
-    : null
+  const amount = typeDef.value.amountUnit ? parseAmount(f.amount) : null
+  if (Number.isNaN(amount)) { error.value = `Проверьте значение (${typeDef.value.amountUnit})`; return }
   const data = { type: f.type, startedAt, endedAt, note: f.note.trim(), kind: kind.value, amount, planned: !!f.planned }
   if (f.type === 'teeth') data.teeth = [...f.teeth]
   if (f.illnessId != null) data.illnessId = f.illnessId
@@ -167,7 +176,7 @@ async function remove() {
 
           <div v-if="typeDef.amountUnit" class="field">
             <label>Количество, {{ typeDef.amountUnit }}</label>
-            <input v-model="form.amount" type="number" step="0.1" min="0" inputmode="decimal" />
+            <input v-model="form.amount" type="text" inputmode="decimal" placeholder="Например, 37,5" />
           </div>
 
           <div v-if="form.type === 'teeth'" class="field">

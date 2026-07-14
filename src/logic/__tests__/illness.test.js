@@ -4,7 +4,8 @@ import {
   isMedActive,
   isDaytime,
   tempIntervalHours,
-  buildReminders
+  buildReminders,
+  illnessOnDay
 } from '../illness'
 
 const HOUR = 3600_000
@@ -123,5 +124,32 @@ describe('buildReminders', () => {
     const ill = baseIllness({ waterEveryHours: 3, foodEveryHours: 1 })
     const r = buildReminders({ illness: ill, events: [], now: NOON })
     expect(r.map(x => x.source)).toEqual(['food', 'water'])
+  })
+})
+
+describe('illnessOnDay', () => {
+  const dayStart = h => new Date(2026, 6, h, 0, 0, 0).getTime() // начало 10-го = (2026,6,10)
+  const D10 = new Date(2026, 6, 10).getTime()
+  const D12 = new Date(2026, 6, 12).getTime()
+  const D15 = new Date(2026, 6, 15).getTime()
+
+  it('день внутри завершённой болезни попадает, вне — нет', () => {
+    const ills = [{ id: 'a', startedAt: D10 + 10 * HOUR, endedAt: D12 + 8 * HOUR }]
+    expect(illnessOnDay(ills, D10, D15)?.id).toBe('a') // первый день (частично)
+    expect(illnessOnDay(ills, D12, D15)?.id).toBe('a') // последний день (частично)
+    expect(illnessOnDay(ills, new Date(2026, 6, 11).getTime(), D15)?.id).toBe('a') // полный день внутри
+    expect(illnessOnDay(ills, D15, D15 + HOUR)).toBe(null) // после выздоровления
+    expect(illnessOnDay(ills, new Date(2026, 6, 9).getTime(), D15)).toBe(null) // до начала
+  })
+
+  it('активная болезнь (endedAt null) тянется до now', () => {
+    const ills = [{ id: 'b', startedAt: D10, endedAt: null }]
+    expect(illnessOnDay(ills, D12, D12 + 5 * HOUR)?.id).toBe('b') // сегодня, болезнь идёт
+    expect(illnessOnDay(ills, D15, D12 + 5 * HOUR)).toBe(null) // день в будущем от now
+  })
+
+  it('пустой список — null', () => {
+    expect(illnessOnDay([], dayStart(10), D15)).toBe(null)
+    expect(illnessOnDay(undefined, dayStart(10), D15)).toBe(null)
   })
 })

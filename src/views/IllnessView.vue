@@ -84,6 +84,12 @@ function onReminderLog(r) {
   }
 }
 
+async function deleteEvent(e) {
+  if (!confirm('Удалить эту запись?')) return
+  await events.remove(e.id)
+  showToast('Запись удалена')
+}
+
 async function recover() {
   if (!confirm('Отметить, что малыш выздоровел? Вкладка «Болезнь» закроется, запись сохранится в истории.')) return
   await illness.recover()
@@ -164,6 +170,7 @@ function eventText(e) {
             <span class="log-row-icon">{{ eventIcon(e) }}</span>
             <span class="grow">{{ eventText(e) }}</span>
             <span class="muted small">{{ dayjs(e.startedAt).format('D.MM HH:mm') }}</span>
+            <button class="log-del" aria-label="Удалить запись" @click="deleteEvent(e)">✕</button>
           </div>
         </div>
       </template>
@@ -248,6 +255,16 @@ function eventText(e) {
 }
 .log-row:last-child { border-bottom: none; }
 .log-row-icon { font-size: 18px; }
+
+.log-del {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--c-text-soft);
+  font-size: 14px;
+}
+.log-del:active { background: var(--c-urgent-soft); color: var(--c-urgent); }
 
 .recover-btn {
   margin-top: 8px;

@@ -33,6 +33,19 @@ export function tempIntervalHours(illness, now) {
     : (illness.tempNightEveryHours ?? 3)
 }
 
+// Болезнь, охватывающая указанный день (пересечение интервала болезни с сутками
+// [dayStartMs, dayStartMs+24ч)). endedAt == null — болезнь ещё идёт, считаем до now.
+// Возвращает первую подходящую болезнь или null.
+export function illnessOnDay(illnesses, dayStartMs, now) {
+  const dayEnd = dayStartMs + 24 * HOUR
+  for (const ill of illnesses || []) {
+    const start = ill.startedAt
+    const end = ill.endedAt ?? now
+    if (start < dayEnd && end >= dayStartMs) return ill
+  }
+  return null
+}
+
 // Время последнего события заданного типа в рамках этой болезни (по illnessId,
 // и при необходимости — конкретного лекарства по medId). null, если не было.
 function lastEventAt(events, illnessId, type, medId = null) {

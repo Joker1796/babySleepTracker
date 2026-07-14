@@ -2,11 +2,14 @@
 import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
+import { useIllnessStore } from '../stores/illness'
 import { useNow, simNow } from '../composables/useNow'
 import { EVENT_TYPES, CALENDAR_TYPE_IDS, CALENDAR_TYPE_LIST } from '../data/eventTypes'
+import { illnessOnDay } from '../logic/illness'
 import EventEditSheet from '../components/EventEditSheet.vue'
 
 const events = useEventsStore()
+const illness = useIllnessStore()
 const now = useNow()
 
 const month = ref(dayjs(now.value).startOf('month'))
@@ -21,8 +24,24 @@ const monthTitle = computed(() => month.value.format('MMMM YYYY'))
 function prevMonth() { month.value = month.value.subtract(1, 'month'); selectedDay.value = null }
 function nextMonth() { month.value = month.value.add(1, 'month'); selectedDay.value = null }
 
-// Только календарные события активного ребёнка (выполненные + запланированные)
-const calEvents = computed(() => events.sorted.filter(e => CALENDAR_TYPE_IDS.includes(e.type)))
+// Только календарные события активного ребёнка (выполненные + запланированные).
+// События болезни (illnessId) в календарь не выносим — вместо них день болезни
+// подсвечивается красным со сводкой (см. sickByDay/selectedIllness).
+const calEvents = computed(() =>
+  events.sorted.filter(e => CALENDAR_TYPE_IDS.includes(e.type) && e.illnessId == null)
+)
+
+// Число месяца → болезнь, охватывающая этот день (для красной подсветки и сводки)
+const sickByDay = computed(() => {
+  const map = {}
+  for (let d = 1; d <= month.value.daysInMonth(); d++) {
+    const dayStart = month.value.date(d).startOf('day').valueOf()
+    const ill = illnessOnDay(illness.illnesses, dayStart, now.value)
+    if (ill) map[d] = ill
+  }
+  return map
+})
+function daySick(day) { return sickByDay.value[day] != null }
 
 // Число месяца → список событий этого дня (в текущем месяце)
 const byDay = computed(() => {
@@ -55,6 +74,15 @@ const selectedEvents = computed(() => {
   if (!selectedDay.value || !selectedDay.value.isSame(month.value, 'month')) return []
   return [...(byDay.value[selectedDay.value.date()] || [])].sort((a, b) => a.startedAt - b.startedAt)
 })
+
+// Болезнь выбранного дня и краткая сводка по ней (название + лекарства)
+const selectedIllness = computed(() => {
+  if (!selectedDay.value || !selectedDay.value.isSame(month.value, 'month')) return null
+  return sickByDay.value[selectedDay.value.date()] || null
+})
+const selectedMedNames = computed(() =>
+  (selectedIllness.value?.medications || []).map(m => (m.name || '').trim()).filter(Boolean)
+)
 
 function dayBase() {
   const day = selectedDay.value || dayjs(simNow())
@@ -96,7 +124,7 @@ function detailOf(e) {
           <button
             v-else
             class="cell"
-            :class="{ event: dayDone(c), planned: dayPlanned(c) && !dayDone(c), selected: isSelected(c) }"
+            :class="{ event: dayDone(c), planned: dayPlanned(c) && !dayDone(c), sick: daySick(c), selected: isSelected(c) }"
             @click="selectDay(c)"
           >
             <span class="num">{{ c }}</span>
@@ -126,7 +154,16 @@ function detailOf(e) {
         </button>
       </div>
 
-      <p v-if="selectedDay && !selectedEvents.length" class="muted small empty-note">В этот день событий нет.</p>
+      <!-- Сводка болезни этого дня -->
+      <div v-if="selectedIllness" class="sick-summary">
+        <div class="ss-head">🤒 {{ selectedIllness.name || 'Болезнь' }}</div>
+        <div class="ss-line muted small">
+          <template v-if="selectedMedNames.length">Лекарства: {{ selectedMedNames.join(', ') }}</template>
+          <template v-else>Лекарства не указаны</template>
+        </div>
+      </div>
+
+      <p v-if="selectedDay && !selectedEvents.length && !selectedIllness" class="muted small empty-note">В этот день событий нет.</p>
       <button v-for="e in selectedEvents" :key="e.id" class="ev-row" @click="sheetModel = e">
         <span class="ev-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
         <span class="grow ev-body">
@@ -218,7 +255,25 @@ function detailOf(e) {
   font-weight: 800;
 }
 
+/* День болезни — красным (важнее обычных событий, поэтому правило ниже по каскаду) */
+.cell.sick .num {
+  background: var(--c-urgent-soft);
+  color: var(--c-urgent);
+  font-weight: 800;
+}
+
 .cell.selected .num { outline: 2px solid var(--c-primary); }
+
+.sick-summary {
+  border: 1px solid var(--c-urgent);
+  background: var(--c-urgent-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.ss-head { font-weight: 700; font-size: 14px; }
+.ss-line { margin-top: 2px; }
 
 .day-card { margin-top: 12px; }
 
