@@ -5,6 +5,7 @@ import { useEventsStore } from '../stores/events'
 import { useSettingsStore } from '../stores/settings'
 import { exportBackup, importBackup } from '../utils/backup'
 import ChildForm from '../components/ChildForm.vue'
+import PlanButtonsEditor from '../components/PlanButtonsEditor.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
@@ -133,6 +134,11 @@ async function onImportFile(e) {
           ? 'Подсказки считаются по вашим параметрам (окна бодрствования, число снов). Настроить — во вкладке «Мой режим».'
           : 'Подсказки считаются автоматически по возрасту ребёнка. Нажмите, чтобы задать свои параметры.' }}
       </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Кнопки планов</div>
+      <PlanButtonsEditor />
     </div>
 
     <div class="card">

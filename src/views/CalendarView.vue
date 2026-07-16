@@ -3,13 +3,15 @@ import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useIllnessStore } from '../stores/illness'
+import { useSettingsStore } from '../stores/settings'
 import { useNow, simNow } from '../composables/useNow'
-import { EVENT_TYPES, CALENDAR_TYPE_IDS, CALENDAR_TYPE_LIST } from '../data/eventTypes'
+import { EVENT_TYPES, CALENDAR_TYPE_IDS, CALENDAR_TYPE_LIST, eventLabel, eventNote } from '../data/eventTypes'
 import { illnessOnDay } from '../logic/illness'
 import EventEditSheet from '../components/EventEditSheet.vue'
 
 const events = useEventsStore()
 const illness = useIllnessStore()
+const settings = useSettingsStore()
 const now = useNow()
 
 const month = ref(dayjs(now.value).startOf('month'))
@@ -93,16 +95,27 @@ function dayBase() {
 
 // Тап по иконке открывает форму события на выбранном дне. Выбор
 // «уже было / запланировано» — внутри самой формы (EventEditSheet).
+// План по умолчанию создаётся невыполненным.
 function addType(typeId) {
-  sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase() }
+  sheetModel.value = { isNew: true, type: typeId, startedAt: dayBase(), planned: typeId === 'plan' }
   showPalette.value = false
 }
 
+// Кнопка-план из настроек: сразу добавляет невыполненный план на выбранный день
+async function addPlan(btn) {
+  await events.add({ type: 'plan', kind: 'point', startedAt: dayBase(), note: btn.name, planned: true })
+  showPalette.value = false
+}
+
+// Галочка выполнения плана: выполнен ↔ снова в планах
+async function togglePlanDone(e) {
+  await events.update({ ...e, planned: !e.planned })
+}
 
 function detailOf(e) {
   const unit = EVENT_TYPES[e.type]?.amountUnit
   const amt = unit && e.amount != null ? `${e.amount} ${unit}` : ''
-  return [amt, e.note].filter(Boolean).join(' · ')
+  return [amt, eventNote(e)].filter(Boolean).join(' · ')
 }
 </script>
 
@@ -143,6 +156,16 @@ function detailOf(e) {
 
       <div v-if="showPalette" class="add-palette">
         <button
+          v-for="b in settings.planButtons"
+          :key="b.id"
+          class="add-ico plan-quick"
+          :title="`Добавить план «${b.name}»`"
+          @click="addPlan(b)"
+        >
+          <span class="ai-emoji">📌</span>
+          <span class="ai-label">{{ b.name }}</span>
+        </button>
+        <button
           v-for="t in CALENDAR_TYPE_LIST"
           :key="t.id"
           class="add-ico"
@@ -164,14 +187,23 @@ function detailOf(e) {
       </div>
 
       <p v-if="selectedDay && !selectedEvents.length && !selectedIllness" class="muted small empty-note">В этот день событий нет.</p>
-      <button v-for="e in selectedEvents" :key="e.id" class="ev-row" @click="sheetModel = e">
-        <span class="ev-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
-        <span class="grow ev-body">
-          <span class="ev-title">{{ EVENT_TYPES[e.type]?.label || e.type }}<span v-if="e.planned" class="plan-tag">· план</span></span>
+      <div v-for="e in selectedEvents" :key="e.id" class="ev-row">
+        <button
+          v-if="e.type === 'plan'"
+          class="plan-check"
+          :class="{ done: !e.planned }"
+          :title="e.planned ? 'Отметить выполненным' : 'Вернуть в планы'"
+          @click="togglePlanDone(e)"
+        >{{ e.planned ? '' : '✓' }}</button>
+        <span v-else class="ev-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
+        <button class="grow ev-body" @click="sheetModel = e">
+          <span class="ev-title" :class="{ done: e.type === 'plan' && !e.planned }">
+            {{ eventLabel(e) }}<span v-if="e.planned && e.type !== 'plan'" class="plan-tag">· план</span>
+          </span>
           <span v-if="detailOf(e)" class="muted small">{{ detailOf(e) }}</span>
-        </span>
+        </button>
         <span class="muted small">{{ dayjs(e.startedAt).format('HH:mm') }}</span>
-      </button>
+      </div>
     </div>
 
     <EventEditSheet :model="sheetModel" :types="CALENDAR_TYPE_LIST" allow-plan @close="sheetModel = null" />
@@ -328,6 +360,13 @@ function detailOf(e) {
 
 .empty-note { padding: 4px 2px; }
 
+.plan-quick {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+}
+
+.plan-quick .ai-label { color: var(--c-primary); }
+
 .ev-row {
   display: flex;
   align-items: center;
@@ -347,6 +386,28 @@ function detailOf(e) {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  text-align: left;
+}
+
+.plan-check {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 15px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-check.done { background: var(--c-primary); }
+
+.ev-title.done {
+  text-decoration: line-through;
+  color: var(--c-text-soft);
 }
 
 .ev-title {

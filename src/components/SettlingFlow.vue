@@ -8,7 +8,7 @@ import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { sleepVerb } from '../logic/gender'
 import { formatDurationMin } from '../logic/age'
-import { EVENT_TYPES, CALENDAR_TYPE_IDS } from '../data/eventTypes'
+import { EVENT_TYPES, CALENDAR_TYPE_IDS, eventLabel, eventNote } from '../data/eventTypes'
 import WakeChecklist from './WakeChecklist.vue'
 
 const props = defineProps({
@@ -65,7 +65,7 @@ async function refreshSoon() {
       id: e.id,
       name: children.children.find(c => c.id === e.childId)?.name || '',
       icon: EVENT_TYPES[e.type]?.icon || '📌',
-      label: EVENT_TYPES[e.type]?.label || e.type,
+      label: eventLabel(e),
       hhmm: dayjs(e.startedAt).format('HH:mm'),
       inMin: Math.round((e.startedAt - from) / 60000)
     }))
@@ -146,7 +146,7 @@ function stopExtension() {
       <div class="plan-cap">🗓️ Из календаря на сегодня</div>
       <div v-for="e in visiblePlanned" :key="e.id" class="plan-line">
         <span class="plan-ico">{{ EVENT_TYPES[e.type]?.icon }}</span>
-        <span class="grow plan-name">{{ EVENT_TYPES[e.type]?.label || e.type }}<template v-if="e.note"> · {{ e.note }}</template></span>
+        <span class="grow plan-name">{{ eventLabel(e) }}<template v-if="eventNote(e)"> · {{ eventNote(e) }}</template></span>
         <span class="plan-date small" :class="evOverdue(e) ? 'overdue' : 'muted'">{{ evTime(e) }}</span>
       </div>
       <button v-if="plannedEvents.length > 3" class="plan-more" @click="expanded = !expanded">

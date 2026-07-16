@@ -8,7 +8,7 @@ import { analyzeDay } from '../logic/sleepAnalyzer'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { dayCount, dayTotalMin } from '../logic/eventStats'
 import { poopVerb } from '../logic/gender'
-import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, NON_CALENDAR_TYPE_LIST, CALENDAR_TYPE_IDS, eventKind } from '../data/eventTypes'
+import { EVENT_TYPES, NON_SLEEP_TYPE_LIST, NON_CALENDAR_TYPE_LIST, CALENDAR_TYPE_IDS, eventKind, eventLabel } from '../data/eventTypes'
 import { getNorms } from '../data/sleepNorms'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 import TimelineDay from '../components/TimelineDay.vue'
@@ -150,7 +150,7 @@ const avgVerdict = computed(() => {
 // Служебные/врачебные типы в статистику не выводим.
 const STATS_EXCLUDE = new Set([
   'doctor', 'vitaminD', 'temperature', 'vaccination', 'pool', 'club',
-  'nails', 'bath', 'massage', 'feedLeft', 'feedRight'
+  'nails', 'bath', 'massage', 'feedLeft', 'feedRight', 'plan'
 ])
 const metric = ref('sleep')
 const usedEventTypes = computed(() => {
@@ -251,7 +251,7 @@ const dayAnchors = computed(() => {
       e.startedAt >= start.valueOf() && e.startedAt < end.valueOf())
     .map(e => ({
       min: dayjs(e.startedAt).diff(start, 'minute'),
-      label: EVENT_TYPES[e.type]?.label || e.type,
+      label: eventLabel(e),
       icon: EVENT_TYPES[e.type]?.icon || '📌'
     }))
 })

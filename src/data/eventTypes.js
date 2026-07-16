@@ -304,6 +304,20 @@ export const EVENT_TYPES = {
     softColor: 'var(--c-walk-soft)',
     hasNote: true,
     notePlaceholder: 'Какой кружок'
+  },
+
+  // ── Планы ── (пользовательские дела в «Календаре»: название хранится в note,
+  // planned: true — не выполнен, false — выполнен; см. кнопки-планы в настройках)
+  plan: {
+    id: 'plan',
+    label: 'План',
+    btnLabel: 'План',
+    kind: 'point',
+    icon: '📌',
+    color: 'var(--c-primary)',
+    softColor: 'var(--c-primary-soft)',
+    hasNote: true,
+    notePlaceholder: 'Что запланировано'
   }
 }
 
@@ -314,7 +328,7 @@ export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula', 'food']
 
 // Календарные события: отмечаются датой и подсвечиваются во вкладке «Календарь»
 // (на главный экран не выносятся)
-export const CALENDAR_TYPE_IDS = ['vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club', 'teeth']
+export const CALENDAR_TYPE_IDS = ['plan', 'vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club', 'teeth']
 export const CALENDAR_TYPE_LIST = CALENDAR_TYPE_IDS.map(id => EVENT_TYPES[id])
 
 // Типы, доступные в пикере «Кнопки на главном экране» (без сна, без календарных
@@ -346,6 +360,18 @@ export function getMainButtons(child) {
 // «Эффективный вид» события: сохранённый на записи kind, иначе — из реестра типов
 export function eventKind(e) {
   return e?.kind ?? EVENT_TYPES[e?.type]?.kind ?? 'point'
+}
+
+// Заголовок события в списках: у пользовательского плана — его текст (note),
+// у остальных типов — название из реестра.
+export function eventLabel(e) {
+  if (e?.type === 'plan' && e.note) return e.note
+  return EVENT_TYPES[e?.type]?.label || e?.type
+}
+
+// Заметка отдельной строкой: у плана note уже показан заголовком — не дублируем.
+export function eventNote(e) {
+  return e?.type === 'plan' ? '' : (e?.note || '')
 }
 
 // Отфильтровать типы по возрасту ребёнка (мес): скрыть те, у кого minAgeM больше.
