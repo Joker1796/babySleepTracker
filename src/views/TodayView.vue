@@ -151,9 +151,11 @@ const showGreeting = computed(() =>
   guidance.value?.greeting && !hideHints.value && !hidden('greeting')
 )
 
-// Подсказка «настройте под ребёнка» — пока не заданы «помощники сна» и не закрыта
+// Подсказка «настройте под ребёнка» — пока не заданы «помощники сна» и не закрыта.
+// При включённом «Скрывать подсказки» тоже не показываем.
 const showAidsHint = computed(() =>
   !!children.activeChild &&
+  !hideHints.value &&
   !(children.activeChild.aids && children.activeChild.aids.length) &&
   !hidden('aids-hint')
 )
@@ -178,7 +180,9 @@ function extendNap() {
 // Поздравление с месяцем/годом остаётся видимым независимо от «Скрывать подсказки».
 const showMilestone = computed(() => !!guidance.value?.milestone && !hidden('milestone'))
 
-const showAchievement = computed(() => !!guidance.value?.achievement && !hidden('achievement'))
+const showAchievement = computed(() =>
+  !!guidance.value?.achievement && !hideHints.value && !hidden('achievement')
+)
 
 const showEncouragement = computed(() =>
   guidance.value?.encouragement && !hideHints.value && !hidden('encouragement')
