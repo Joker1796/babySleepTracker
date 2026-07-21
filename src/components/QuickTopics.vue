@@ -12,6 +12,7 @@ function toggle(id) {
   <div class="quick">
     <div class="tags">
       <router-link to="/advice" class="tag tag-advice">💡 Советы</router-link>
+      <router-link to="/gymnastics" class="tag tag-gym">🤸 Гимнастика</router-link>
       <button
         v-for="t in QUICK_TOPICS"
         :key="t.id"
@@ -61,6 +62,12 @@ function toggle(id) {
   background: var(--c-primary);
   border-color: var(--c-primary);
   color: var(--c-on-primary);
+}
+
+/* Чип «Гимнастика» — ведёт на возрастной комплекс упражнений */
+.tag-gym {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
 }
 
 .topic-text {
