@@ -122,7 +122,7 @@ function stopExtension() {
 
 <template>
   <div class="flow" :class="[tone, embedded ? 'embedded' : 'card']">
-    <div class="flow-head">
+    <div v-if="!(embedded && guidance.phase === 'sleeping')" class="flow-head">
       <span class="flow-icon">{{ icon }}</span>
       <h2 class="flow-title">{{ flowHeadline }}</h2>
     </div>

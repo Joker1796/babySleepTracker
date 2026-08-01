@@ -223,7 +223,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     if (night) {
       g.lines.push('Пусть спит. При пробуждениях — минимум света, тихий голос, никакой стимуляции: так малыш легче свяжет циклы сна.')
     } else {
-      g.lines.push(`Малыш спит уже ${formatDurationMin(state.sleepingMin)}. Не будите раньше времени, но следите, чтобы поздний дневной сон не сдвинул ночной.`)
+      g.lines.push('Не будите раньше времени, но следите, чтобы поздний дневной сон не сдвинул ночной.')
     }
   }
 

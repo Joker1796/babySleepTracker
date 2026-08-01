@@ -9,6 +9,7 @@ import { useSettlingStore } from '../stores/settling'
 import { useUiStore } from '../stores/ui'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
+import { isDaytimeStart } from '../logic/sleepAnalyzer'
 import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { sleepVerb, wakeVerb } from '../logic/gender'
 import ChildSwitcher from '../components/ChildSwitcher.vue'
@@ -84,9 +85,13 @@ const status = computed(() => {
   const a = advice.value
   if (!a) return null
   if (a.state.sleeping) {
+    const dur = formatDurationMin(a.state.sleepingMin)
+    const title = isDaytimeStart(a.state.sleeping)
+      ? `Спит ${a.today.napCount}-й дневной сон, ${dur}`
+      : `Спит ночной сон, ${dur}`
     return {
       icon: '😴',
-      title: `Спит ${formatDurationMin(a.state.sleepingMin)}`,
+      title,
       sub: `${sleepVerb(genderOf.value).toLowerCase()} в ${dayjs(a.state.sleeping.startedAt).format('HH:mm')}`
     }
   }
