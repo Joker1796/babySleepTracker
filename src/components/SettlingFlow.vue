@@ -12,7 +12,9 @@ import { EVENT_TYPES, CALENDAR_TYPE_IDS, eventLabel, eventNote } from '../data/e
 import WakeChecklist from './WakeChecklist.vue'
 
 const props = defineProps({
-  guidance: { type: Object, required: true }
+  guidance: { type: Object, required: true },
+  // Без своей карточки — встраивается в чужую (сводку на главном экране)
+  embedded: { type: Boolean, default: false }
 })
 const emit = defineEmits(['slept'])
 
@@ -119,7 +121,7 @@ function stopExtension() {
 </script>
 
 <template>
-  <div class="flow card" :class="tone">
+  <div class="flow" :class="[tone, embedded ? 'embedded' : 'card']">
     <div class="flow-head">
       <span class="flow-icon">{{ icon }}</span>
       <h2 class="flow-title">{{ flowHeadline }}</h2>
@@ -209,6 +211,14 @@ function stopExtension() {
 .flow { border-left: 4px solid var(--c-primary); }
 .flow.warn { border-left-color: var(--c-warn); }
 .flow.urgent { border-left-color: var(--c-urgent); }
+
+/* Встроена в чужую карточку (сводку) — без фона/тени, с разделителем сверху */
+.flow.embedded {
+  margin-top: 12px;
+  padding-top: 12px;
+  padding-left: 10px;
+  border-top: 1px solid var(--c-border);
+}
 
 .flow-head {
   display: flex;

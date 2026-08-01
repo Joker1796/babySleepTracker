@@ -230,6 +230,9 @@ function toggleRegime() {
           <span class="f-value">{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
         </div>
       </div>
+
+      <!-- Пора укладывать / укладываемся / сон — встроено в ту же карточку -->
+      <SettlingFlow v-if="guidance.phase !== 'active'" embedded :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
     </div>
 
     <!-- Достижение дня -->
@@ -238,9 +241,6 @@ function toggleRegime() {
       <span class="trophy-icon">🏆</span>
       <p>{{ guidance.achievement.text }}</p>
     </div>
-
-    <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
-    <SettlingFlow v-if="guidance && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
     <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул(а)» -->
     <button v-if="guidance?.showExtendNap" class="btn block extend-btn" @click="extendNap">
