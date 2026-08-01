@@ -25,14 +25,13 @@ describe('фазы', () => {
     expect(g.activities.length).toBeGreaterThan(0)
   })
 
-  it('wind-down: до сна меньше 30 минут, есть кнопка укладывания', () => {
+  it('wind-down: до сна меньше 30 минут', () => {
     const g = buildGuidance({
       child,
       events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
       now: ts('2026-07-04T16:00') // окно 135, осталось ~15
     })
     expect(g.phase).toBe('wind-down')
-    expect(g.showStartSettling).toBe(true)
   })
 
   it('time-to-sleep: окно бодрствования исчерпано', () => {
@@ -42,32 +41,6 @@ describe('фазы', () => {
       now: ts('2026-07-04T16:20') // перебор окна
     })
     expect(g.phase).toBe('time-to-sleep')
-    expect(g.showStartSettling).toBe(true)
-  })
-
-  it('settling без выбранного места → предлагает варианты, без советов', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
-      now: ts('2026-07-04T16:20'),
-      settling: { startedAt: ts('2026-07-04T16:15'), location: null }
-    })
-    expect(g.phase).toBe('settling')
-    expect(g.location).toBeNull()
-    expect(g.locationOptions.length).toBe(3)
-    expect(g.steps.length).toBe(0)
-  })
-
-  it('settling с выбранным местом → советы под обстановку', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
-      now: ts('2026-07-04T16:20'),
-      settling: { startedAt: ts('2026-07-04T16:15'), location: 'walk' }
-    })
-    expect(g.location).toBe('walk')
-    expect(g.steps.length).toBeGreaterThan(0)
-    expect(g.steps.join(' ')).toContain('коляск')
   })
 
   it('sleeping: во время сна', () => {
@@ -120,25 +93,6 @@ describe('поздравления с новым месяцем/годом', () 
     expect(g.milestone.isYear).toBe(true)
     expect(g.milestone.years).toBe(1)
     expect(g.milestone.text).toContain('1 год')
-  })
-})
-
-describe('персонализация советов по укладыванию', () => {
-  it('советы дома зависят от типа кормления', () => {
-    const bf = buildGuidance({
-      child: { ...child, feeding: 'breast' },
-      events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
-      now: ts('2026-07-04T16:20'),
-      settling: { startedAt: ts('2026-07-04T15:40'), location: 'home' }
-    })
-    expect(bf.steps.join(' ')).toContain('к груди')
-    const ff = buildGuidance({
-      child: { ...child, feeding: 'formula' },
-      events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
-      now: ts('2026-07-04T16:20'),
-      settling: { startedAt: ts('2026-07-04T15:40'), location: 'home' }
-    })
-    expect(ff.steps.join(' ')).not.toContain('к груди')
   })
 })
 
@@ -235,47 +189,7 @@ describe('карточки дня', () => {
     expect(g.lines.join(' ')).toContain('подгузник')
   })
 
-  it('nap-extension: сессия продления сна → шаги алгоритма', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T13:00', '2026-07-04T13:30')], // короткий сон
-      now: ts('2026-07-04T13:40'),
-      extension: { startedAt: ts('2026-07-04T13:35') }
-    })
-    expect(g.phase).toBe('nap-extension')
-    expect(g.steps.length).toBeGreaterThan(0)
-  })
-
-  it('nap-extension: спустя 15 минут → сообщение поднимать малыша', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T13:00', '2026-07-04T13:30')],
-      now: ts('2026-07-04T13:55'),
-      extension: { startedAt: ts('2026-07-04T13:35') } // прошло 20 минут
-    })
-    expect(g.steps.length).toBe(0)
-    expect(g.lines.join(' ')).toContain('бодрствование')
-  })
-
-  it('showExtendNap: после короткого сна предлагает продлить', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T13:00', '2026-07-04T13:30')], // 30 мин, проснулся
-      now: ts('2026-07-04T13:35')
-    })
-    expect(g.showExtendNap).toBe(true)
-  })
-
-  it('дневной сон 35+ мин — продлить не предлагаем', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T13:00', '2026-07-04T13:40')], // 40 мин
-      now: ts('2026-07-04T13:45')
-    })
-    expect(g.showExtendNap).toBe(false)
-  })
-
-  it('короткий ночной сон после купания (<30 мин) → ночное пробуждение и продлить', () => {
+  it('короткий ночной сон после купания → ночное пробуждение', () => {
     const g = buildGuidance({
       child,
       events: [
@@ -285,7 +199,6 @@ describe('карточки дня', () => {
       now: ts('2026-07-04T19:55')
     })
     expect(g.phase).toBe('night-waking')
-    expect(g.showExtendNap).toBe(true)
   })
 
   it('ранний отбой после купания (до 19:00) — бодрствование считается ночным пробуждением', () => {

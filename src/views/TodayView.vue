@@ -1,11 +1,10 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useIllnessStore } from '../stores/illness'
-import { useSettlingStore } from '../stores/settling'
 import { useUiStore } from '../stores/ui'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
@@ -24,7 +23,6 @@ import QuickTopics from '../components/QuickTopics.vue'
 const children = useChildrenStore()
 const events = useEventsStore()
 const illness = useIllnessStore()
-const settling = useSettlingStore()
 const ui = useUiStore()
 const now = useNow()
 const router = useRouter()
@@ -55,25 +53,11 @@ const guidance = computed(() => {
   return buildGuidance({
     child: children.activeChild,
     events: events.sorted,
-    now: now.value,
-    settling: settling.get(children.activeChild.id),
-    extension: settling.getExtension(children.activeChild.id)
+    now: now.value
   })
 })
 
 const advice = computed(() => guidance.value?.advisor || null)
-
-// Если малыш заснул (в т.ч. через большую кнопку) — закрываем сессии укладывания и продления
-watch(
-  () => events.currentSleep?.id,
-  (sleepId) => {
-    const id = children.activeChild?.id
-    if (sleepId && id) {
-      if (settling.get(id)) settling.clear(id)
-      if (settling.getExtension(id)) settling.clearExtension(id)
-    }
-  }
-)
 
 // Ночное пробуждение для верхней карточки: пока идёт ночь и малыш проснулся,
 // показываем «Ночное пробуждение», а не «Бодрствует» — даже во время продления сна.
@@ -87,7 +71,7 @@ const status = computed(() => {
   if (a.state.sleeping) {
     const dur = formatDurationMin(a.state.sleepingMin)
     const title = isDaytimeStart(a.state.sleeping)
-      ? `Спит ${a.today.napCount}-й дневной сон, ${dur}`
+      ? `Спит дневной сон, ${dur}`
       : `Спит ночной сон, ${dur}`
     return {
       icon: '😴',
@@ -132,10 +116,7 @@ const timeToSleepLabel = computed(() => {
 })
 
 
-// Флоу сам даёт кнопку «Уснул» во время укладывания — большая кнопка тогда лишняя
-const showSleepButton = computed(() =>
-  guidance.value && !['settling', 'nap-extension'].includes(guidance.value.phase)
-)
+const showSleepButton = computed(() => !!guidance.value)
 
 // Универсальное закрытие подсказок крестиком «на день»: ключ включает дату,
 // поэтому назавтра подсказка появляется снова (если ещё актуальна).
@@ -167,10 +148,6 @@ function showToast(msg) {
   toast.value = msg
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toast.value = '' }, 2200)
-}
-
-function extendNap() {
-  settling.startExtension(children.activeChild?.id)
 }
 
 // Поздравление с месяцем/годом остаётся видимым независимо от «Скрывать подсказки».
@@ -231,13 +208,13 @@ function toggleRegime() {
 
       <div class="forecast">
         <div class="forecast-item">
-          <span class="f-label">Дневной сон сегодня</span>
-          <span class="f-value">{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
+          <span class="f-label">{{ advice.today.napCount }} {{ plural(advice.today.napCount, 'дневной сон', 'дневных сна', 'дневных снов') }} сегодня</span>
+          <span class="f-value">{{ formatDurationMin(advice.today.daySleepMin) }}</span>
         </div>
       </div>
 
-      <!-- Пора укладывать / укладываемся / сон — встроено в ту же карточку -->
-      <SettlingFlow v-if="guidance.phase !== 'active'" embedded :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
+      <!-- Пора укладывать / сон — встроено в ту же карточку -->
+      <SettlingFlow v-if="guidance.phase !== 'active'" embedded :guidance="guidance" />
     </div>
 
     <!-- Достижение дня -->
@@ -247,16 +224,11 @@ function toggleRegime() {
       <p>{{ guidance.achievement.text }}</p>
     </div>
 
-    <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул(а)» -->
-    <button v-if="guidance?.showExtendNap" class="btn block extend-btn" @click="extendNap">
-      🔁 Продлить сон
-    </button>
-
     <SleepButton v-if="showSleepButton" />
     <EventButtons @logged="showToast" @edit="e => (sheetModel = e)" />
 
     <!-- Чем заняться (активное бодрствование) — под кнопками активностей -->
-    <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
+    <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" />
 
     <template v-if="!hideHints && visibleAdvices.length">
       <div class="card-title" style="margin-bottom: 6px">Ещё подсказки</div>
@@ -305,8 +277,6 @@ function toggleRegime() {
   line-height: 1;
   color: var(--c-text-soft);
 }
-
-.extend-btn { margin-bottom: 12px; }
 
 .status-icon { font-size: 34px; }
 
