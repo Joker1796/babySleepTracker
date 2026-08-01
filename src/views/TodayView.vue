@@ -156,14 +156,6 @@ const showMilestone = computed(() => !!guidance.value?.milestone && !hidden('mil
 const showAchievement = computed(() =>
   !!guidance.value?.achievement && !hideHints.value && !hidden('achievement')
 )
-
-// Режим расчёта: 'auto' (наш движок по возрасту) или 'custom' (параметры родителя)
-const regimeMode = computed(() => children.activeChild?.regime?.mode || 'auto')
-function toggleRegime() {
-  const id = children.activeChild?.id
-  if (!id) return
-  children.setRegimeMode(id, regimeMode.value === 'custom' ? 'auto' : 'custom')
-}
 </script>
 
 <template>
@@ -186,14 +178,6 @@ function toggleRegime() {
           <div class="status-title">{{ status.title }}</div>
           <div v-if="status.sub" class="muted small">{{ status.sub }}</div>
         </div>
-        <button
-          class="regime-toggle"
-          :class="{ custom: regimeMode === 'custom' }"
-          @click="toggleRegime"
-          :aria-label="`Режим: ${regimeMode === 'custom' ? 'настраиваемый' : 'авто'}`"
-        >
-          {{ regimeMode === 'custom' ? '🎛️ Свой' : '✨ Авто' }}
-        </button>
       </div>
 
       <div v-if="progress != null && !advice.state.sleeping && !isNightWaking" class="ww">
@@ -281,26 +265,6 @@ function toggleRegime() {
 .status-icon { font-size: 34px; }
 
 /* Переключатель режима расчёта — компактный pill справа в карточке статуса */
-.regime-toggle {
-  flex-shrink: 0;
-  align-self: flex-start;
-  padding: 6px 10px;
-  min-height: 30px;
-  border-radius: 999px;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface-2);
-  color: var(--c-text-soft);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.regime-toggle.custom {
-  border-color: var(--c-primary);
-  background: var(--c-primary-soft);
-  color: var(--c-primary);
-}
-
 .status-title {
   font-size: 19px;
   font-weight: 700;
