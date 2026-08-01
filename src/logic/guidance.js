@@ -144,7 +144,6 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     showExtendNap: justWokeShort && !(extension && extension.startedAt),
     extensionMin: extension?.startedAt ? Math.round((now - extension.startedAt) / MS_MIN) : 0,
     achievement: null,
-    encouragement: null,
     greeting: null,
     milestone: milestoneToday(child, now)
   }
@@ -232,13 +231,6 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   const todayMet = metNorms(today, norms)
   if (hour >= 18 && todayMet.all) {
     g.achievement = { text: 'Отличный день! Малыш выспался и днём, и по общей суточной норме. Вы большие молодцы 👏' }
-  }
-
-  // ── Поддержка мамы, если сна мало ──
-  if (!g.achievement && hour >= 15 && today.daySleepMin < norms.daySleep[0] * 0.6) {
-    g.encouragement = {
-      text: 'Сегодня со сном непросто — так бывает у всех, и это не ваша вина. Малыши растут скачками, и режим обязательно выровняется. Позаботьтесь и о себе: глоток воды, короткая передышка, помощь близких. Хороший вечерний сон часто исправляет трудный день.'
-    }
   }
 
   // ── Приветствие нового дня: достижения вчера + на что обратить внимание ──

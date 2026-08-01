@@ -4,7 +4,7 @@ import { buildGuidance, metNorms } from '../guidance'
 import { getNorms } from '../../data/sleepNorms'
 
 const ts = s => dayjs(s).valueOf()
-const child = { id: 'c1', name: 'Тест', birthDate: '2026-02-01', feeding: 'breast', aids: [] }
+const child = { id: 'c1', name: 'Тест', birthDate: '2026-02-01', feeding: 'breast' }
 
 function sleep(start, end) {
   return { id: start, type: 'sleep', startedAt: ts(start), endedAt: end ? ts(end) : null }
@@ -139,16 +139,6 @@ describe('персонализация советов по укладывани�
       settling: { startedAt: ts('2026-07-04T15:40'), location: 'home' }
     })
     expect(ff.steps.join(' ')).not.toContain('к груди')
-  })
-
-  it('на прогулке советуют белый шум только при наличии в профиле', () => {
-    const withNoise = buildGuidance({
-      child: { ...child, aids: ['white-noise'] },
-      events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
-      now: ts('2026-07-04T16:20'),
-      settling: { startedAt: ts('2026-07-04T16:15'), location: 'walk' }
-    })
-    expect(withNoise.steps.join(' ')).toContain('белый шум')
   })
 })
 
@@ -308,15 +298,6 @@ describe('карточки дня', () => {
       now: ts('2026-07-04T19:10')
     })
     expect(g.phase).toBe('night-waking')
-  })
-
-  it('поддержка мамы при малом дневном сне к вечеру', () => {
-    const g = buildGuidance({
-      child,
-      events: [sleep('2026-07-04T13:00', '2026-07-04T13:20')], // 20 мин днём
-      now: ts('2026-07-04T17:00')
-    })
-    expect(g.encouragement).not.toBeNull()
   })
 })
 

@@ -6,8 +6,8 @@ function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || [] } catch { return [] }
 }
 
-// Закрытые крестиком подсказки: утренний итог дня, подсказка про настройки и т.п.
-// Ключи вида 'greeting:<childId>:<YYYY-MM-DD>' или 'aids-hint:<childId>'.
+// Закрытые крестиком подсказки: утренний итог дня и т.п.
+// Ключи вида 'greeting:<childId>:<YYYY-MM-DD>'.
 export const useUiStore = defineStore('ui', {
   state: () => ({
     dismissed: load()

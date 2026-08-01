@@ -92,37 +92,6 @@ describe('buildAdvice: правила', () => {
     expect(a.advices.map(x => x.id)).toContain('regression-4m')
   })
 
-  it('пеленание после 2 месяцев → предупреждение, помечено как совет из профиля', () => {
-    const swaddled = { ...child, aids: ['swaddle'] }
-    const a = buildAdvice({ child: swaddled, events: [], now: ts('2026-07-04T12:00') })
-    const rule = a.advices.find(x => x.id === 'swaddle-stop')
-    expect(rule).toBeTruthy()
-    expect(rule.profile).toBe(true)
-    // без пеленания правило не срабатывает
-    const plain = buildAdvice({ child, events: [], now: ts('2026-07-04T12:00') })
-    expect(plain.advices.map(x => x.id)).not.toContain('swaddle-stop')
-  })
-
-  it('засыпание на груди после 4 мес вечером → совет про ассоциацию, текст зависит от кормления', () => {
-    const events = [sleep('2026-07-04T15:00', '2026-07-04T16:00')]
-    const now = ts('2026-07-04T17:30')
-    const bf = buildAdvice({ child: { ...child, feeding: 'breast', aids: ['feeding-to-sleep'] }, events, now })
-    const bfAdvice = bf.advices.find(x => x.id === 'feeding-to-sleep-assoc')
-    expect(bfAdvice).toBeTruthy()
-    expect(bfAdvice.text).toContain('на груди')
-    const ff = buildAdvice({ child: { ...child, feeding: 'formula', aids: ['feeding-to-sleep'] }, events, now })
-    expect(ff.advices.find(x => x.id === 'feeding-to-sleep-assoc').text).toContain('с бутылочкой')
-  })
-
-  it('текст про перегул учитывает белый шум из профиля', () => {
-    const events = [sleep('2026-07-04T08:00', '2026-07-04T09:00')]
-    const now = ts('2026-07-04T12:00') // 180 мин бодрствования при окне 135 → перегул > 30 мин
-    const noAids = buildAdvice({ child, events, now })
-    expect(noAids.advices.find(x => x.id === 'window-exceeded-hard').text).toContain('шшш')
-    const withNoise = buildAdvice({ child: { ...child, aids: ['white-noise'] }, events, now })
-    expect(withNoise.advices.find(x => x.id === 'window-exceeded-hard').text).toContain('белый шум')
-  })
-
   it('правила отсортированы по приоритету', () => {
     const a = buildAdvice({
       child,

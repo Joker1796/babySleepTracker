@@ -73,12 +73,16 @@ const showSummary = ref(false)
 const days = ref(7)
 const showStats = ref(false)
 
-// Текущий день не включаем — статистика по завершённым дням (вчера и назад)
+// Текущий день не включаем — статистика по завершённым дням (вчера и назад).
+// День с неполными данными (сна не было вовсе, либо какая-то сессия сна
+// за этот день ещё не закрыта — не отмечено пробуждение) в статистику не идёт.
 const stats = computed(() => {
   const result = []
   for (let i = days.value; i >= 1; i--) {
     const ts = dayjs(now.value).startOf('day').subtract(i, 'day').valueOf()
-    result.push({ dayTs: ts, ...analyzeDay(events.sorted, ts, now.value) })
+    const day = analyzeDay(events.sorted, ts, now.value)
+    const complete = day.totalSleepMin > 0 && !day.sessions.some(s => s.endedAt == null)
+    if (complete) result.push({ dayTs: ts, ...day })
   }
   return result
 })
@@ -130,7 +134,7 @@ const gridLines = computed(() =>
 )
 
 const avg = computed(() => {
-  const withData = stats.value.filter(d => d.totalSleepMin > 0)
+  const withData = stats.value
   if (!withData.length) return null
   const total = withData.reduce((s, d) => s + d.totalSleepMin, 0) / withData.length
   const day = withData.reduce((s, d) => s + d.daySleepMin, 0) / withData.length
@@ -445,7 +449,7 @@ function addEvent() {
 
     <template v-if="showStats">
       <div class="card-title stats-title">Статистика</div>
-      <p class="muted small stats-note">По дням и средние за период (текущий день не учитывается).</p>
+      <p class="muted small stats-note">По дням и средние за период (текущий день и дни с неполными данными не учитываются).</p>
       <div class="row stats-controls">
         <select v-model="metric" class="period-select">
           <option value="sleep">😴 Сон</option>

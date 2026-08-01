@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
 import { useChildrenStore, CHILD_COLORS } from '../stores/children'
 import { ageInMonths } from '../logic/age'
-import { GENDERS, FEEDING_TYPES, SLEEP_AIDS } from '../data/childOptions'
+import { GENDERS, FEEDING_TYPES } from '../data/childOptions'
 import { EVENT_TYPES, MAIN_BUTTON_TYPE_LIST, getMainButtons, typesForAge } from '../data/eventTypes'
 
 const props = defineProps({
@@ -18,7 +18,6 @@ const birthDate = ref(props.child?.birthDate || '')
 const gender = ref(props.child?.gender || null)
 const color = ref(props.child?.color || CHILD_COLORS[store.children.length % CHILD_COLORS.length])
 const feeding = ref(props.child?.feeding || 'breast')
-const aids = ref([...(props.child?.aids || [])])
 // Кнопки главного экрана: [{ type, mode: 'time' | 'count' }]
 const mainButtons = ref(getMainButtons(props.child).map(b => ({ ...b })))
 const hideHints = ref(props.child?.hideHints || false)
@@ -27,12 +26,6 @@ const justSaved = ref(false)  // подсветка кнопки «✓ Сохр�
 let savedTimer = null
 
 const today = dayjs().format('YYYY-MM-DD')
-
-function toggleAid(id) {
-  const i = aids.value.indexOf(id)
-  if (i === -1) aids.value.push(id)
-  else aids.value.splice(i, 1)
-}
 
 // Строки пикера: «Левая»/«Правая» грудь сводим в один переключатель «Грудь»
 // (в mainButtons при этом по-прежнему лежат оба типа — на главном две кнопки).
@@ -86,7 +79,6 @@ async function save() {
     gender: gender.value,
     color: color.value,
     feeding: feeding.value,
-    aids: [...aids.value],
     mainButtons: mainButtons.value.map(b => ({ ...b })),
     hideHints: hideHints.value
   }
@@ -154,22 +146,9 @@ async function save() {
       <p class="muted small hint">Эти кнопки появятся на главном экране. «Время» — засекает длительность (старт/стоп), «Кол-во» — считает нажатия.</p>
     </div>
     <div class="field">
-      <label>Что используете для сна</label>
-      <div class="chips aids-chips">
-        <button
-          v-for="a in SLEEP_AIDS"
-          :key="a.id"
-          class="chip"
-          :class="{ active: aids.includes(a.id) }"
-          @click="toggleAid(a.id)"
-        >{{ a.icon }} {{ a.label }}</button>
-      </div>
-      <p class="muted small hint">Подсказки будут учитывать выбранное — например, напомнят, когда пора уходить от пеленания.</p>
-    </div>
-    <div class="field">
       <label>Подсказки</label>
       <div class="row hint-row">
-        <div class="grow muted small">Скрывать все подсказки на «Сегодня» для этого ребёнка: приветствие, поддержку, достижение дня, совет по настройке и карточки-подсказки. Пока переключатель включён — они не появятся; поздравления с месяцем и годом остаются.</div>
+        <div class="grow muted small">Скрывать все подсказки на «Сегодня» для этого ребёнка: приветствие, достижение дня, совет по настройке и карточки-подсказки. Пока переключатель включён — они не появятся; поздравления с месяцем и годом остаются.</div>
         <button
           class="chip"
           :class="{ active: hideHints }"
@@ -248,13 +227,6 @@ async function save() {
 }
 
 .chip.sm {
-  font-size: 12px;
-  padding: 6px 10px;
-  min-height: 34px;
-}
-
-/* Компактные чипы блока «Что используете для сна» */
-.aids-chips .chip {
   font-size: 12px;
   padding: 6px 10px;
   min-height: 34px;

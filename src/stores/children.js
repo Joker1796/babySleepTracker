@@ -22,14 +22,13 @@ export const useChildrenStore = defineStore('children', {
       this.children = await db.children.toArray()
       this.loaded = true
     },
-    async add({ name, birthDate, color, feeding, aids, gender, mainButtons, hideHints }) {
+    async add({ name, birthDate, color, feeding, gender, mainButtons, hideHints }) {
       const child = {
         id: uid(),
         name,
         birthDate,
         color: color || CHILD_COLORS[this.children.length % CHILD_COLORS.length],
         feeding: feeding || 'breast',
-        aids: aids || [],
         gender: gender || null,
         mainButtons: mainButtons || DEFAULT_MAIN_BUTTONS,
         hideHints: hideHints || false,
@@ -41,7 +40,7 @@ export const useChildrenStore = defineStore('children', {
       return child
     },
     async update(child) {
-      // Снимаем реактивность Vue: вложенные массивы/объекты (например, aids, regime)
+      // Снимаем реактивность Vue: вложенные массивы/объекты (например, mainButtons, regime)
       // могут остаться Proxy, а IndexedDB их не клонирует (DataCloneError).
       const plain = JSON.parse(JSON.stringify(child))
       await db.children.put(plain)

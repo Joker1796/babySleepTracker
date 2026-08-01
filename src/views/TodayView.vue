@@ -151,15 +151,6 @@ const showGreeting = computed(() =>
   guidance.value?.greeting && !hideHints.value && !hidden('greeting')
 )
 
-// Подсказка «настройте под ребёнка» — пока не заданы «помощники сна» и не закрыта.
-// При включённом «Скрывать подсказки» тоже не показываем.
-const showAidsHint = computed(() =>
-  !!children.activeChild &&
-  !hideHints.value &&
-  !(children.activeChild.aids && children.activeChild.aids.length) &&
-  !hidden('aids-hint')
-)
-
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
 // они доступны в разделе «Советы». Оставляем только ситуативные.
 const secondaryAdvices = computed(() => advice.value?.advices.filter(a => !a.general).slice(0, 4) || [])
@@ -184,10 +175,6 @@ const showAchievement = computed(() =>
   !!guidance.value?.achievement && !hideHints.value && !hidden('achievement')
 )
 
-const showEncouragement = computed(() =>
-  guidance.value?.encouragement && !hideHints.value && !hidden('encouragement')
-)
-
 // Режим расчёта: 'auto' (наш движок по возрасту) или 'custom' (параметры родителя)
 const regimeMode = computed(() => children.activeChild?.regime?.mode || 'auto')
 function toggleRegime() {
@@ -209,16 +196,6 @@ function toggleRegime() {
     </div>
 
     <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @close="hide('greeting')" />
-
-    <!-- Подсказка: настроить помощники сна под ребёнка -->
-    <div v-if="showAidsHint" class="card aids-hint">
-      <button class="hint-close" aria-label="Закрыть" @click="hide('aids-hint')">×</button>
-      <span class="hint-icon">⚙️</span>
-      <div class="grow">
-        <p class="hint-text">Настройте под ребёнка: укачивание, соска, блэкаут и другое — подсказки станут точнее.</p>
-        <router-link to="/settings" class="hint-link">Открыть настройки →</router-link>
-      </div>
-    </div>
 
     <div v-if="advice" class="card status-card">
       <div class="row">
@@ -260,13 +237,6 @@ function toggleRegime() {
       <button class="hint-close" aria-label="Закрыть" @click="hide('achievement')">×</button>
       <span class="trophy-icon">🏆</span>
       <p>{{ guidance.achievement.text }}</p>
-    </div>
-
-    <!-- Поддержка для мамы -->
-    <div v-if="showEncouragement" class="card support">
-      <button class="hint-close" aria-label="Закрыть" @click="hide('encouragement')">×</button>
-      <span class="support-icon">💛</span>
-      <p>{{ guidance.encouragement.text }}</p>
     </div>
 
     <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
@@ -320,17 +290,6 @@ function toggleRegime() {
 <style scoped>
 .status-card { padding-bottom: 12px; }
 
-/* Подсказка про настройки под ребёнка */
-.aids-hint {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding-right: 34px;
-  background: var(--c-info-soft);
-  border: 1px solid var(--c-info);
-}
-
 .hint-close {
   position: absolute;
   top: 6px;
@@ -340,17 +299,6 @@ function toggleRegime() {
   font-size: 22px;
   line-height: 1;
   color: var(--c-text-soft);
-}
-
-.hint-icon { font-size: 24px; }
-
-.hint-text { margin: 0 0 6px; font-size: 14px; }
-
-.hint-link {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--c-primary);
-  text-decoration: none;
 }
 
 .extend-btn { margin-bottom: 12px; }
@@ -428,15 +376,12 @@ function toggleRegime() {
 .f-label { color: var(--c-text-soft); }
 .f-value { font-weight: 600; }
 
-.trophy, .support {
+.trophy {
   position: relative;
   display: flex;
   gap: 12px;
   align-items: flex-start;
   padding-right: 34px;
-}
-
-.trophy {
   background: linear-gradient(135deg, #fff6e0, var(--c-surface));
   border: 1px solid var(--c-warn);
 }
@@ -445,13 +390,9 @@ function toggleRegime() {
   background: linear-gradient(135deg, #3b2d16, var(--c-surface));
 }
 
-.trophy-icon, .support-icon { font-size: 26px; }
+.trophy-icon { font-size: 26px; }
 
-.trophy p, .support p { margin: 0; font-size: 14px; }
-
-.support {
-  background: var(--c-medicine-soft);
-}
+.trophy p { margin: 0; font-size: 14px; }
 
 .milestone {
   position: relative;
