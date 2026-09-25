@@ -1,35 +1,85 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
+import dayjs from 'dayjs'
+import { db } from '../db'
 import { useEventsStore } from '../stores/events'
-import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
-import { sleepVerb } from '../logic/gender'
+import { useNow } from '../composables/useNow'
+import { formatDurationMin } from '../logic/age'
+import { EVENT_TYPES, CALENDAR_TYPE_IDS, eventLabel, eventNote } from '../data/eventTypes'
 import WakeChecklist from './WakeChecklist.vue'
 import Icon from './Icon.vue'
 
 const props = defineProps({
-  guidance: { type: Object, required: true }
+  guidance: { type: Object, required: true },
+  // Без своей карточки — встраивается в чужую (сводку на главном экране)
+  embedded: { type: Boolean, default: false }
 })
-const emit = defineEmits(['slept'])
 
 const events = useEventsStore()
-const settling = useSettlingStore()
 const children = useChildrenStore()
 
-const childId = computed(() => children.activeChild?.id)
+const now = useNow()
 const phase = computed(() => props.guidance.phase)
-// «Уснул/Уснула» — по полу ребёнка из профиля
-const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
 
-// Раскрытие подробностей идеи «чем заняться» (по аналогии с быстрыми темами)
-const openActivity = ref(null)
-function toggleActivity(i) {
-  openActivity.value = openActivity.value === i ? null : i
+// Запланированные события календаря активного ребёнка ТОЛЬКО за сегодня —
+// показываем в блоке «Чем заняться» с временем.
+const plannedEvents = computed(() => {
+  if (phase.value !== 'active') return []
+  const dayStart = dayjs(now.value).startOf('day').valueOf()
+  const dayEnd = dayjs(now.value).endOf('day').valueOf()
+  return events.sorted
+    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type) &&
+      e.startedAt >= dayStart && e.startedAt <= dayEnd)
+    .sort((a, b) => a.startedAt - b.startedAt)
+})
+
+// Если событий много — показываем первые 3, остальное под кнопкой
+const expanded = ref(false)
+const visiblePlanned = computed(() =>
+  expanded.value ? plannedEvents.value : plannedEvents.value.slice(0, 3)
+)
+
+// Заголовок карточки: «Планы» только когда в календаре есть события на сегодня,
+// иначе — обычный заголовок фазы («Чем заняться» и т.п.).
+const flowHeadline = computed(() =>
+  phase.value === 'active' && plannedEvents.value.length ? 'Планы' : props.guidance.headline
+)
+
+// Напоминание за 2 часа по ВСЕМ детям (при нескольких детях) — запрос к БД,
+// чтобы в любом профиле были видны ближайшие события всех детей.
+const allSoon = ref([])
+async function refreshSoon() {
+  if (children.children.length < 2) { allSoon.value = []; return }
+  const from = now.value
+  const to = from + 2 * 60 * 60 * 1000
+  const rows = await db.events.where('startedAt').between(from, to, true, true).toArray()
+  allSoon.value = rows
+    .filter(e => e.planned && CALENDAR_TYPE_IDS.includes(e.type))
+    .sort((a, b) => a.startedAt - b.startedAt)
+    .map(e => ({
+      id: e.id,
+      name: children.children.find(c => c.id === e.childId)?.name || '',
+      iconName: EVENT_TYPES[e.type]?.iconName || 'pin',
+      label: eventLabel(e),
+      hhmm: dayjs(e.startedAt).format('HH:mm'),
+      inMin: Math.round((e.startedAt - from) / 60000)
+    }))
+}
+onMounted(refreshSoon)
+watch(() => now.value, refreshSoon)
+watch(() => children.children.length, refreshSoon)
+
+function evTime(e) {
+  return dayjs(e.startedAt).format('D MMM, HH:mm')
+}
+function evOverdue(e) {
+  return e.startedAt < now.value
 }
 
 const tone = computed(() => {
   if (phase.value === 'time-to-sleep') return 'urgent'
-  if (phase.value === 'wind-down' || phase.value === 'settling') return 'warn'
+  if (phase.value === 'wind-down') return 'warn'
   return 'calm'
 })
 
@@ -39,66 +89,18 @@ const icon = computed(() => ({
   'wind-down': 'sunrise',
   'time-to-sleep': 'clock',
   'night-waking': 'moon',
-  settling: 'moon',
-  'nap-extension': 'repeat',
   sleeping: 'moon'
 }[phase.value] || 'bulb'))
-
-function startSettling() {
-  settling.start(childId.value)
-}
-function chooseLocation(loc) {
-  settling.setLocation(childId.value, loc)
-}
-function changeLocation() {
-  settling.setLocation(childId.value, null)
-}
-// Повторный тап не создаст второй сон: startInterval в сторе отдаёт уже
-// создаваемый/открытый интервал. Флаг лишь гасит повторные вызовы целиком.
-let asleepBusy = false
-async function fellAsleep() {
-  if (asleepBusy) return
-  asleepBusy = true
-  try {
-    await events.startInterval('sleep')
-  } finally {
-    asleepBusy = false
-  }
-  settling.clear(childId.value)
-  settling.clearExtension(childId.value)
-  emit('slept')
-}
-function stopExtension() {
-  settling.clearExtension(childId.value)
-}
 </script>
 
 <template>
-  <div class="flow card" :class="tone">
-    <div class="flow-head">
+  <div class="flow" :class="[tone, embedded ? 'embedded' : 'card']">
+    <div v-if="!(embedded && guidance.phase === 'sleeping')" class="flow-head">
       <Icon :name="icon" class="flow-icon" />
-      <h2 class="flow-title">{{ guidance.headline }}</h2>
+      <h2 class="flow-title">{{ flowHeadline }}</h2>
     </div>
 
     <p v-for="(line, i) in guidance.lines" :key="i" class="flow-line">{{ line }}</p>
-
-    <!-- Активное время: чем заняться — кнопки с раскрытием подробностей -->
-    <div v-if="guidance.activities.length" class="ideas">
-      <div class="idea-tags">
-        <button
-          v-for="(idea, i) in guidance.activities"
-          :key="i"
-          class="idea-tag"
-          :class="{ active: openActivity === i }"
-          @click="toggleActivity(i)"
-        >{{ idea.title }}</button>
-      </div>
-      <Transition name="fade">
-        <div v-if="openActivity !== null" class="idea-text">
-          {{ guidance.activities[openActivity].text }}
-        </div>
-      </Transition>
-    </div>
 
     <!-- Чек-лист занятий на бодрствование (живот, утренние дела) -->
     <WakeChecklist
@@ -107,63 +109,42 @@ function stopExtension() {
       :wake-since="guidance.wakeSince"
     />
 
-    <!-- Продление сна: шаги алгоритма -->
-    <template v-if="phase === 'nap-extension'">
-      <ol v-if="guidance.steps.length" class="steps">
-        <li v-for="(step, i) in guidance.steps" :key="i">{{ step }}</li>
-      </ol>
-      <div class="row two-btn">
-        <button class="btn secondary grow" @click="stopExtension">Начать бодрствование</button>
-        <button class="btn grow" @click="fellAsleep">{{ sleepWord }}</button>
+    <!-- Напоминание за 2 часа по всем детям (при нескольких детях) -->
+    <div v-if="allSoon.length" class="soon-alert" role="status">
+      <div v-for="s in allSoon" :key="s.id" class="soon-line">
+        <Icon name="clock" :size="16" class="soon-ico" />
+        <span>{{ s.name }}: через ~{{ formatDurationMin(s.inMin) }} — {{ s.label }} (<span class="num">{{ s.hhmm }}</span>).</span>
       </div>
-    </template>
+    </div>
 
-    <!-- Кнопка «Начать укладывание» (wind-down / time-to-sleep) -->
-    <button v-if="guidance.showStartSettling" class="btn block start-btn" @click="startSettling">
-      <Icon name="moon" :size="18" /> Начать укладывание
-    </button>
-
-    <!-- Укладывание: выбор места и советы под обстановку -->
-    <template v-if="phase === 'settling'">
-      <!-- Шаг 1: где укладываете -->
-      <div v-if="!guidance.location" class="loc-options">
-        <button
-          v-for="loc in guidance.locationOptions"
-          :key="loc.id"
-          class="loc-btn"
-          @click="chooseLocation(loc.id)"
-        >
-          <Icon :name="loc.iconName || 'star'" class="loc-icon" />
-          <span>{{ loc.label }}</span>
-        </button>
+    <!-- Запланированные события из «Календаря» на сегодня со временем -->
+    <div v-if="plannedEvents.length" class="plan-block">
+      <div class="plan-cap"><Icon name="calendar" :size="14" /> Из календаря на сегодня</div>
+      <div v-for="e in visiblePlanned" :key="e.id" class="plan-line">
+        <Icon :name="EVENT_TYPES[e.type]?.iconName || 'pin'" :size="18" class="plan-ico" />
+        <span class="grow plan-name">{{ eventLabel(e) }}<template v-if="eventNote(e)"> · {{ eventNote(e) }}</template></span>
+        <span class="plan-date small num" :class="evOverdue(e) ? 'overdue' : 'muted'">{{ evTime(e) }}</span>
       </div>
-
-      <!-- Шаг 2: советы для выбранного места -->
-      <template v-else>
-        <ol class="steps">
-          <li v-for="(step, i) in guidance.steps" :key="i">{{ step }}</li>
-        </ol>
-      </template>
-
-      <button class="btn block" @click="fellAsleep">{{ sleepWord }}</button>
-
-      <!-- Назад к выбору места (значок слева внизу) -->
-      <button
-        v-if="guidance.location"
-        class="back-btn"
-        @click="changeLocation"
-        aria-label="Назад к выбору места"
-      ><Icon name="chevron-left" :size="20" /></button>
-    </template>
+      <button v-if="plannedEvents.length > 3" class="plan-more" @click="expanded = !expanded">
+        {{ expanded ? 'Свернуть' : `Ещё ${plannedEvents.length - 3}` }}
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
 /* Сценарий — лист дневника; тон задаёт цвет иконки, а не полоска слева */
-.flow { padding: var(--sp-4); }
+.flow.card { padding: var(--sp-4); }
 .flow-icon { color: var(--c-text-soft); }
 .flow.warn .flow-icon, .flow.urgent .flow-icon { color: var(--c-accent); }
-.flow.urgent { border-color: var(--c-accent); }
+.flow.card.urgent { border-color: var(--c-accent); }
+
+/* Встроена в чужую карточку (сводку) — без рамки, с разделителем сверху */
+.flow.embedded {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border);
+}
 
 .flow-head {
   display: flex;
@@ -180,93 +161,64 @@ function stopExtension() {
   margin: 0 0 8px;
 }
 
-.remaining, .steps {
-  margin: 4px 0 12px;
-  padding-left: 20px;
-  font-size: var(--fs-base);
-}
-
-.remaining li, .steps li { margin-bottom: 5px; }
-
-.ideas { margin: 4px 0 12px; }
-
-.idea-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.idea-tag {
-  padding: 7px 14px;
-  min-height: 40px;
-  border-radius: 999px;
-  border: 1px solid var(--c-border);
+/* Напоминание за 2 часа */
+.soon-alert {
+  margin: 6px 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--c-accent-soft);
+  border: 1px solid var(--c-accent);
   color: var(--c-text);
   font-size: var(--fs-sm);
   font-weight: 500;
 }
 
-.idea-tag.active {
-  background: var(--c-primary);
-  border-color: var(--c-primary);
-  color: var(--c-on-primary);
-}
-
-.idea-text {
-  margin-top: 8px;
-  font-size: var(--fs-base);
-  line-height: 1.5;
-}
-
-.remaining { color: var(--c-accent); font-weight: 500; }
-
-.steps li { margin-bottom: 8px; }
-
-.start-btn { margin-top: 6px; }
-
-.two-btn { gap: 10px; margin-top: 8px; }
-
-.loc-options {
+.soon-line {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  margin: 6px 0 12px;
 }
 
-.loc-btn {
+.soon-line + .soon-line { margin-top: 4px; }
+
+.soon-ico { flex-shrink: 0; margin-top: 2px; color: var(--c-accent); }
+
+/* События из календаря */
+.plan-block { margin: 4px 0 10px; }
+
+.plan-cap {
   display: flex;
   align-items: center;
-  gap: 12px;
-  text-align: left;
-  padding: 12px 14px;
-  min-height: 52px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--c-border);
-  font-size: var(--fs-base);
-  font-weight: 500;
-}
-
-.loc-btn:active {
-  background: var(--c-surface-2);
-  border-color: var(--c-primary);
-}
-
-.loc-icon { color: var(--c-text-soft); }
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin-top: 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--c-border);
+  gap: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
   color: var(--c-text-soft);
+  margin-bottom: 6px;
 }
 
-.back-btn:active {
-  background: var(--c-surface-2);
-  border-color: var(--c-primary);
+.plan-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--c-border);
 }
+
+.plan-line:last-child { border-bottom: none; }
+
+.plan-ico { flex-shrink: 0; color: var(--c-text-soft); }
+
+.plan-name { font-size: var(--fs-base); font-weight: 500; }
+
+.plan-date { flex-shrink: 0; }
+
+.plan-more {
+  margin-top: 6px;
+  min-height: 44px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-primary);
+}
+
+.overdue { color: var(--c-urgent); }
 </style>

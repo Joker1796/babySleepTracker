@@ -8,11 +8,19 @@ db.version(1).stores({
   events: 'id, childId, startedAt, [childId+startedAt]'
 })
 
-// v2: схема индексов та же; дозаполняем у детей поля, появившиеся позже
-// (color, feeding, aids, gender, regime). Существующие значения не меняются.
+// v2 — режим «Болезнь». Апгрейд аддитивный: таблицы v1 сохраняются как есть.
 db.version(2).stores({
   children: 'id, name',
-  events: 'id, childId, startedAt, [childId+startedAt]'
+  events: 'id, childId, startedAt, [childId+startedAt]',
+  illnesses: 'id, childId, startedAt'
+})
+
+// v3: схема индексов та же; дозаполняем у детей поля, появившиеся позже
+// (color, feeding, gender, regime). Существующие значения не меняются.
+db.version(3).stores({
+  children: 'id, name',
+  events: 'id, childId, startedAt, [childId+startedAt]',
+  illnesses: 'id, childId, startedAt'
 }).upgrade(tx => {
   let index = 0
   return tx.table('children').toCollection().modify(child => {

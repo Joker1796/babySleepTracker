@@ -1,6 +1,9 @@
 // Реестр типов событий. kind: 'interval' — с началом и концом, 'point' — момент времени.
+// Порядок записей сгруппирован «по схожести» (кормление → активность → гигиена →
+// здоровье) и задаёт порядок в пикере кнопок и в строках «Истории».
+// btnLabel — компактная подпись для кнопки; activeLabel — подпись идущего интервала.
+// amountUnit/amountAgg — числовое значение события (мл, °C) и способ агрегации в статистике.
 // iconName — линейная иконка (components/Icon.vue); icon (эмодзи) — только для <option>.
-// Чтобы добавить новый тип (например, кормление) — достаточно дописать запись здесь.
 export const EVENT_TYPES = {
   sleep: {
     id: 'sleep',
@@ -13,10 +16,65 @@ export const EVENT_TYPES = {
     startLabel: 'Засыпание',
     endLabel: 'Пробуждение'
   },
+
+  // ── Кормление ──
+  feedLeft: {
+    id: 'feedLeft',
+    iconName: 'breast',
+    label: 'Левая грудь',
+    btnLabel: 'Левая',
+    activeLabel: 'Левая',
+    kind: 'point',
+    canTime: true,
+    icon: '🤱',
+    color: 'var(--c-medicine)',
+    softColor: 'var(--c-medicine-soft)'
+  },
+  feedRight: {
+    id: 'feedRight',
+    iconName: 'breast',
+    label: 'Правая грудь',
+    btnLabel: 'Правая',
+    activeLabel: 'Правая',
+    kind: 'point',
+    canTime: true,
+    icon: '🤱',
+    color: 'var(--c-medicine)',
+    softColor: 'var(--c-medicine-soft)'
+  },
+  feedFormula: {
+    id: 'feedFormula',
+    iconName: 'bottle',
+    label: 'Смесь',
+    btnLabel: 'Смесь',
+    kind: 'point',
+    icon: '🍼',
+    color: 'var(--c-bath)',
+    softColor: 'var(--c-bath-soft)',
+    amountUnit: 'мл',
+    amountAgg: 'sum'
+  },
+  food: {
+    id: 'food',
+    iconName: 'bowl',
+    label: 'Еда',
+    btnLabel: 'Еда',
+    kind: 'point',
+    icon: '🥣',
+    color: 'var(--c-warn)',
+    softColor: 'var(--c-warn-soft)',
+    hasNote: true,
+    notePlaceholder: 'Что ел(а)',
+    minAgeM: 4 // прикорм — с 4 месяцев
+  },
+
+  // ── Активность ──
   walk: {
     id: 'walk',
     iconName: 'stroller',
     label: 'Прогулка',
+    btnLabel: 'Прогулка',
+    activeLabel: 'Гуляем',
     kind: 'interval',
     icon: '🚶',
     color: 'var(--c-walk)',
@@ -24,21 +82,25 @@ export const EVENT_TYPES = {
     startLabel: 'Начали прогулку',
     endLabel: 'Закончили прогулку'
   },
-  bath: {
-    id: 'bath',
-    iconName: 'bath',
-    label: 'Купание',
+  strollerSleep: {
+    id: 'strollerSleep',
+    iconName: 'stroller',
+    label: 'Сон в коляске',
+    btnLabel: 'Сон в коляске',
+    activeLabel: 'Спит в коляске',
     kind: 'interval',
-    icon: '🛁',
-    color: 'var(--c-bath)',
-    softColor: 'var(--c-bath-soft)',
-    startLabel: 'Начали купание',
-    endLabel: 'Закончили купание'
+    icon: '🚼',
+    color: 'var(--c-sleep)',
+    softColor: 'var(--c-sleep-soft)',
+    startLabel: 'Уснул(а) в коляске',
+    endLabel: 'Проснулся(ась)'
   },
   tummy: {
     id: 'tummy',
     iconName: 'tummy',
     label: 'Выкладывание на живот',
+    btnLabel: 'Выкладывание',
+    activeLabel: 'Живот',
     kind: 'interval',
     icon: '👶',
     color: 'var(--c-accent)',
@@ -46,21 +108,110 @@ export const EVENT_TYPES = {
     startLabel: 'Начали выкладывание',
     endLabel: 'Закончили выкладывание'
   },
+  massage: {
+    id: 'massage',
+    iconName: 'hands',
+    label: 'Массаж',
+    btnLabel: 'Массаж',
+    activeLabel: 'Массаж',
+    kind: 'interval',
+    icon: '💆',
+    color: 'var(--c-primary)',
+    softColor: 'var(--c-primary-soft)',
+    startLabel: 'Начали массаж',
+    endLabel: 'Закончили массаж'
+  },
+  games: {
+    id: 'games',
+    iconName: 'toy',
+    label: 'Игры',
+    btnLabel: 'Игры',
+    activeLabel: 'Играем',
+    kind: 'interval',
+    icon: '🧸',
+    color: 'var(--c-walk)',
+    softColor: 'var(--c-walk-soft)',
+    startLabel: 'Начали игры',
+    endLabel: 'Закончили игры'
+  },
+
+  // ── Гигиена ──
+  bath: {
+    id: 'bath',
+    iconName: 'bath',
+    label: 'Купание',
+    btnLabel: 'Купание',
+    activeLabel: 'Купаемся',
+    kind: 'interval',
+    icon: '🛁',
+    color: 'var(--c-bath)',
+    softColor: 'var(--c-bath-soft)',
+    startLabel: 'Начали купание',
+    endLabel: 'Закончили купание'
+  },
+  diaper: {
+    id: 'diaper',
+    iconName: 'diaper',
+    label: 'Смена памперса',
+    btnLabel: 'Памперс',
+    kind: 'point',
+    icon: '🧷',
+    color: 'var(--c-warn)',
+    softColor: 'var(--c-warn-soft)'
+  },
+  nails: {
+    id: 'nails',
+    iconName: 'scissors',
+    label: 'Стрижка ногтей',
+    btnLabel: 'Ногти',
+    kind: 'point',
+    icon: '✂️',
+    color: 'var(--c-primary)',
+    softColor: 'var(--c-primary-soft)'
+  },
+
+  // ── Здоровье ──
   poop: {
     id: 'poop',
     iconName: 'diaper',
     // Нейтральная метка (списки типов, редактор событий). Кнопка, лента и История
     // показывают глагол по полу ребёнка — см. poopVerb() в logic/gender.js.
     label: 'Стул',
+    btnLabel: 'Стул',
     kind: 'point',
     icon: '💩',
     color: 'var(--c-walk)',
     softColor: 'var(--c-walk-soft)'
   },
+  teeth: {
+    id: 'teeth',
+    iconName: 'tooth',
+    label: 'Зубы',
+    btnLabel: 'Зубы',
+    kind: 'point',
+    icon: '🦷',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    hasNote: true,
+    notePlaceholder: 'Заметка'
+  },
+  temperature: {
+    id: 'temperature',
+    iconName: 'thermometer',
+    label: 'Температура',
+    btnLabel: 'Температура',
+    kind: 'point',
+    icon: '🌡️',
+    color: 'var(--c-urgent)',
+    softColor: 'var(--c-urgent-soft)',
+    amountUnit: '°C',
+    amountAgg: 'last'
+  },
   medicine: {
     id: 'medicine',
     iconName: 'pill',
     label: 'Лекарство',
+    btnLabel: 'Лекарство',
     kind: 'point',
     icon: '💊',
     color: 'var(--c-medicine)',
@@ -68,24 +219,193 @@ export const EVENT_TYPES = {
     hasNote: true,
     notePlaceholder: 'Название и доза'
   },
-  wash: {
-    id: 'wash',
-    iconName: 'drop',
-    label: 'Умывание',
+
+  // ── Болезнь ── (логируются только с экрана «Болезнь», в пользовательских
+  // пикерах не показываются — см. context: 'illness')
+  water: {
+    id: 'water',
+    iconName: 'cup',
+    label: 'Питьё',
+    btnLabel: 'Питьё',
     kind: 'point',
-    icon: '🧼',
-    color: 'var(--c-bath)',
-    softColor: 'var(--c-bath-soft)'
+    icon: '💧',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    context: 'illness'
+  },
+  condition: {
+    id: 'condition',
+    iconName: 'bandage',
+    label: 'Состояние',
+    btnLabel: 'Состояние',
+    kind: 'point',
+    icon: '🩹',
+    color: 'var(--c-primary)',
+    softColor: 'var(--c-primary-soft)',
+    hasNote: true,
+    notePlaceholder: 'Самочувствие',
+    context: 'illness'
   },
   vitaminD: {
     id: 'vitaminD',
     iconName: 'sun',
     label: 'Витамин D',
+    btnLabel: 'Витамин D',
     kind: 'point',
     icon: '☀️',
     color: 'var(--c-warn)',
     softColor: 'var(--c-warn-soft)'
+  },
+  doctor: {
+    id: 'doctor',
+    iconName: 'stethoscope',
+    label: 'Приём врача',
+    btnLabel: 'Врач',
+    kind: 'point',
+    icon: '🩺',
+    color: 'var(--c-medicine)',
+    softColor: 'var(--c-medicine-soft)',
+    hasNote: true,
+    notePlaceholder: 'Врач, причина, назначения'
+  },
+  vaccination: {
+    id: 'vaccination',
+    iconName: 'syringe',
+    label: 'Прививка',
+    btnLabel: 'Прививка',
+    kind: 'point',
+    icon: '💉',
+    color: 'var(--c-urgent)',
+    softColor: 'var(--c-urgent-soft)',
+    hasNote: true,
+    notePlaceholder: 'Какая прививка'
+  },
+
+  // ── Измерения и занятия ──
+  height: {
+    id: 'height',
+    iconName: 'ruler',
+    label: 'Рост',
+    btnLabel: 'Рост',
+    kind: 'point',
+    icon: '📏',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    amountUnit: 'см',
+    amountAgg: 'last',
+    hasNote: true,
+    notePlaceholder: 'Комментарий'
+  },
+  weight: {
+    id: 'weight',
+    iconName: 'scale',
+    label: 'Вес',
+    btnLabel: 'Вес',
+    kind: 'point',
+    icon: '⚖️',
+    color: 'var(--c-info)',
+    softColor: 'var(--c-info-soft)',
+    amountUnit: 'кг',
+    amountAgg: 'last',
+    hasNote: true,
+    notePlaceholder: 'Комментарий'
+  },
+  pool: {
+    id: 'pool',
+    iconName: 'waves',
+    label: 'Бассейн',
+    btnLabel: 'Бассейн',
+    kind: 'point',
+    icon: '🏊',
+    color: 'var(--c-bath)',
+    softColor: 'var(--c-bath-soft)',
+    hasNote: true,
+    notePlaceholder: 'Комментарий'
+  },
+  club: {
+    id: 'club',
+    iconName: 'palette',
+    label: 'Кружок',
+    btnLabel: 'Кружок',
+    kind: 'point',
+    icon: '🎨',
+    color: 'var(--c-walk)',
+    softColor: 'var(--c-walk-soft)',
+    hasNote: true,
+    notePlaceholder: 'Какой кружок'
+  },
+
+  // ── Планы ── (пользовательские дела в «Календаре»: название хранится в note,
+  // planned: true — не выполнен, false — выполнен; см. кнопки-планы в настройках)
+  plan: {
+    id: 'plan',
+    iconName: 'pin',
+    label: 'План',
+    btnLabel: 'План',
+    kind: 'point',
+    icon: '📌',
+    color: 'var(--c-primary)',
+    softColor: 'var(--c-primary-soft)',
+    hasNote: true,
+    notePlaceholder: 'Что запланировано'
   }
 }
 
 export const EVENT_TYPE_LIST = Object.values(EVENT_TYPES)
+
+// Типы кормления — на главном экране всегда идут первыми
+export const FEEDING_TYPE_IDS = ['feedLeft', 'feedRight', 'feedFormula', 'food']
+
+// Календарные события: отмечаются датой и подсвечиваются во вкладке «Календарь»
+// (на главный экран не выносятся)
+export const CALENDAR_TYPE_IDS = ['plan', 'vaccination', 'doctor', 'vitaminD', 'nails', 'medicine', 'height', 'weight', 'pool', 'club', 'teeth']
+export const CALENDAR_TYPE_LIST = CALENDAR_TYPE_IDS.map(id => EVENT_TYPES[id])
+
+// Типы, доступные в пикере «Кнопки на главном экране» (без сна, без календарных
+// и без «болезненных» — те логируются только с экрана «Болезнь»)
+export const MAIN_BUTTON_TYPE_LIST = EVENT_TYPE_LIST.filter(
+  t => t.id !== 'sleep' && !CALENDAR_TYPE_IDS.includes(t.id) && t.context !== 'illness'
+)
+
+// Все события, кроме сна — для строк плашки «Истории» (в порядке реестра)
+export const NON_SLEEP_TYPE_LIST = EVENT_TYPE_LIST.filter(t => t.id !== 'sleep')
+
+// Типы для добавления события в «Истории» — без календарных и без «болезненных»
+// (врач/прививки/витамин D/ногти/лекарство добавляются только в «Календаре»)
+export const NON_CALENDAR_TYPE_LIST = EVENT_TYPE_LIST.filter(
+  t => !CALENDAR_TYPE_IDS.includes(t.id) && t.context !== 'illness'
+)
+
+// Набор кнопок по умолчанию
+export const DEFAULT_MAIN_BUTTONS = [
+  { type: 'tummy', mode: 'time' },
+  { type: 'bath', mode: 'time' },
+  { type: 'poop', mode: 'count' }
+]
+
+export function getMainButtons(child) {
+  return Array.isArray(child?.mainButtons) ? child.mainButtons : DEFAULT_MAIN_BUTTONS
+}
+
+// «Эффективный вид» события: сохранённый на записи kind, иначе — из реестра типов
+export function eventKind(e) {
+  return e?.kind ?? EVENT_TYPES[e?.type]?.kind ?? 'point'
+}
+
+// Заголовок события в списках: у пользовательского плана — его текст (note),
+// у остальных типов — название из реестра.
+export function eventLabel(e) {
+  if (e?.type === 'plan' && e.note) return e.note
+  return EVENT_TYPES[e?.type]?.label || e?.type
+}
+
+// Заметка отдельной строкой: у плана note уже показан заголовком — не дублируем.
+export function eventNote(e) {
+  return e?.type === 'plan' ? '' : (e?.note || '')
+}
+
+// Отфильтровать типы по возрасту ребёнка (мес): скрыть те, у кого minAgeM больше.
+export function typesForAge(list, ageM) {
+  if (ageM == null) return list
+  return list.filter(t => t.minAgeM == null || ageM >= t.minAgeM)
+}

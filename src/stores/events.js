@@ -71,7 +71,7 @@ export const useEventsStore = defineStore('events', {
       this.events = this.events.filter(e => e.id !== id)
       touchNow()
     },
-    // Защита от дублей (двойной тап, SleepButton + SettlingFlow и т.п.):
+    // Защита от дублей (двойной тап, несколько кнопок и т.п.):
     // если интервал этого типа уже открыт или прямо сейчас создаётся —
     // не создаём второй, возвращаем существующий.
     startInterval(type, at = simNow()) {
@@ -87,7 +87,7 @@ export const useEventsStore = defineStore('events', {
         const inDb = await db.events.where('childId').equals(childId)
           .filter(e => e.type === type && e.endedAt == null).first()
         if (inDb) return inDb
-        return this.add({ type, startedAt: at, endedAt: null, childId })
+        return this.add({ type, startedAt: at, endedAt: null, childId, kind: 'interval' })
       })().finally(() => pendingStarts.delete(key))
 
       pendingStarts.set(key, promise)
@@ -100,7 +100,7 @@ export const useEventsStore = defineStore('events', {
       return this.update({ ...current, endedAt: at })
     },
     async addPoint(type, at = simNow(), note = '') {
-      return this.add({ type, startedAt: at, endedAt: null, note })
+      return this.add({ type, startedAt: at, endedAt: null, note, kind: 'point' })
     }
   }
 })

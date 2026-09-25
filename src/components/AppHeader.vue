@@ -8,9 +8,9 @@ const children = useChildrenStore()
 const NAV_ITEMS = computed(() => {
   const base = [
     { to: '/', icon: 'home', label: 'Сегодня' },
-    { to: '/history', icon: 'calendar', label: 'История' },
-    { to: '/advice', icon: 'book', label: 'Советы' },
-    { to: '/stats', icon: 'chart', label: 'Статистика' }
+    { to: '/history', icon: 'clock', label: 'История' },
+    { to: '/calendar', icon: 'calendar', label: 'Календарь' },
+    { to: '/advice', icon: 'book', label: 'Советы' }
   ]
   if (children.activeChild?.regime?.mode === 'custom') {
     base.push({ to: '/regime', icon: 'sliders', label: 'Мой режим' })

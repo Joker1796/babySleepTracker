@@ -3,9 +3,10 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 const routes = [
   { path: '/', name: 'today', component: () => import('../views/TodayView.vue') },
   { path: '/history', name: 'history', component: () => import('../views/HistoryView.vue') },
+  { path: '/calendar', name: 'calendar', component: () => import('../views/CalendarView.vue') },
   { path: '/advice', name: 'advice', component: () => import('../views/AdviceView.vue') },
-  { path: '/stats', name: 'stats', component: () => import('../views/StatsView.vue') },
   { path: '/regime', name: 'regime', component: () => import('../views/RegimeView.vue') },
+  { path: '/illness', name: 'illness', component: () => import('../views/IllnessView.vue') },
   { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') }
 ]
 

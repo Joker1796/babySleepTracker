@@ -73,12 +73,9 @@ export function buildAdvice({ child, events, now = Date.now() }) {
   const todayEvents = events.filter(e => e.startedAt >= dayStart)
 
   const feeding = child.feeding || null
-  const aids = child.aids || []
 
   const ctx = {
     feeding,
-    aids,
-    usesAid: id => aids.includes(id),
     now,
     hour: dayjs(now).hour(),
     child,
@@ -106,7 +103,7 @@ export function buildAdvice({ child, events, now = Date.now() }) {
   for (const rule of ADVISOR_RULES) {
     try {
       if (rule.when(ctx)) {
-        advices.push({ id: rule.id, priority: rule.priority, text: rule.text(ctx), tipId: rule.tipId || null, general: rule.general || false, profile: rule.profile || false })
+        advices.push({ id: rule.id, priority: rule.priority, text: rule.text(ctx), tipId: rule.tipId || null, general: rule.general || false })
       }
     } catch {
       // правило с ошибкой не должно ломать приложение

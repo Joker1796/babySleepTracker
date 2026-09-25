@@ -8,7 +8,8 @@ export async function exportBackup() {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     children: await db.children.toArray(),
-    events: await db.events.toArray()
+    events: await db.events.toArray(),
+    illnesses: await db.illnesses.toArray()
   }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -30,20 +31,22 @@ export async function readBackupFile(file) {
 // replace: true — заменить всё; false — добавить (записи с теми же id перезапишутся).
 export async function importBackup(data, { replace }) {
   const existingChildIds = replace ? [] : await db.children.toCollection().primaryKeys()
-  const { children, events, skipped, reasons } = validateBackup(data, { existingChildIds })
+  const { children, events, illnesses, skipped, reasons } = validateBackup(data, { existingChildIds })
   if (replace && children.length === 0) {
     throw new Error('В файле нет ни одного корректного профиля — текущие данные не тронуты')
   }
-  await db.transaction('rw', db.children, db.events, async () => {
+  await db.transaction('rw', db.children, db.events, db.illnesses, async () => {
     if (replace) {
       await db.events.clear()
       await db.children.clear()
+      await db.illnesses.clear()
     }
     await db.children.bulkPut(children)
     await db.events.bulkPut(events)
+    await db.illnesses.bulkPut(illnesses)
   })
   return {
-    imported: { children: children.length, events: events.length },
+    imported: { children: children.length, events: events.length, illnesses: illnesses.length },
     skipped,
     reasons
   }

@@ -5,7 +5,8 @@ import { fillChildDefaults } from '../db/childDefaults'
 // Чистая (без IndexedDB) проверка и нормализация данных резервной копии.
 
 export const BACKUP_APP = 'babySleepTracker'
-export const BACKUP_VERSION = 1
+// v2 — добавились болезни (illnesses); в копиях v1 их нет, это нормально
+export const BACKUP_VERSION = 2
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -110,7 +111,6 @@ export function validateBackup(data, { existingChildIds = [], now = Date.now() }
       delete child.regime
       reasons.push(`${label} (${child.name}): некорректные параметры режима — сброшены на авто`)
     }
-    if (child.aids != null && !Array.isArray(child.aids)) delete child.aids
     if (child.gender != null && child.gender !== 'male' && child.gender !== 'female') child.gender = null
     if (!isValidDueDate(child.dueDate)) {
       child.dueDate = null
@@ -138,10 +138,26 @@ export function validateBackup(data, { existingChildIds = [], now = Date.now() }
     events.push({ ...raw, endedAt, note: typeof raw.note === 'string' ? raw.note : '' })
   })
 
+  const illnesses = []
+  let skippedIllnesses = 0
+  const illnessIds = new Set()
+  const rawIllnesses = Array.isArray(data.illnesses) ? data.illnesses : []
+  rawIllnesses.forEach((raw, i) => {
+    const skip = why => { skippedIllnesses++; reasons.push(`Болезнь №${i + 1}: ${why}`) }
+    if (!raw || typeof raw !== 'object') return skip('некорректная запись')
+    if (!isValidId(raw.id)) return skip('нет id')
+    if (illnessIds.has(raw.id)) return skip('повторяющийся id')
+    if (!knownChildIds.has(raw.childId)) return skip('ребёнок не найден')
+    if (typeof raw.startedAt !== 'number' || !Number.isFinite(raw.startedAt)) return skip('некорректное время начала')
+    illnessIds.add(raw.id)
+    illnesses.push(raw)
+  })
+
   return {
     children,
     events,
-    skipped: { children: skippedChildren, events: skippedEvents },
+    illnesses,
+    skipped: { children: skippedChildren, events: skippedEvents, illnesses: skippedIllnesses },
     reasons
   }
 }

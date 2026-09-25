@@ -2,19 +2,24 @@
 import { computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
 import Icon from './Icon.vue'
+import { useIllnessStore } from '../stores/illness'
 
 const children = useChildrenStore()
+const illness = useIllnessStore()
 
 const items = computed(() => {
   const base = [
     { to: '/', icon: 'home', label: 'Сегодня' },
-    { to: '/history', icon: 'calendar', label: 'История' },
-    { to: '/advice', icon: 'book', label: 'Советы' },
-    { to: '/stats', icon: 'chart', label: 'Стат.' }
+    { to: '/history', icon: 'clock', label: 'История' },
+    { to: '/calendar', icon: 'calendar', label: 'Календарь' }
   ]
   // Вкладка «Режим» — только когда включён настраиваемый режим
   if (children.activeChild?.regime?.mode === 'custom') {
     base.push({ to: '/regime', icon: 'sliders', label: 'Режим' })
+  }
+  // Вкладка «Болезнь» — только пока малыш болеет
+  if (illness.hasActive) {
+    base.push({ to: '/illness', icon: 'thermometer', label: 'Болезнь' })
   }
   base.push({ to: '/settings', icon: 'more', label: 'Ещё' })
   return base

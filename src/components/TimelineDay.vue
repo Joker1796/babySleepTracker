@@ -4,9 +4,10 @@ import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
-import { EVENT_TYPES } from '../data/eventTypes'
-import { formatDurationMin } from '../logic/age'
+import { EVENT_TYPES, eventKind } from '../data/eventTypes'
+import { formatDurationMin, plural } from '../logic/age'
 import { poopVerb } from '../logic/gender'
+import { analyzeDay } from '../logic/sleepAnalyzer'
 import Icon from './Icon.vue'
 
 const props = defineProps({
@@ -19,21 +20,41 @@ const events = useEventsStore()
 const children = useChildrenStore()
 const now = useNow()
 
+// Порядковые номера ТОЛЬКО дневных снов (nap) за день — для подписи «Сон N».
+// Дневные сны берём из analyzeDay; ночной сон остаётся без номера.
+const napNo = computed(() => {
+  const { naps } = analyzeDay(events.sorted, props.dayTs, now.value)
+  const map = {}
+  naps.forEach((s, i) => { map[s.id] = i + 1 })
+  return map
+})
+
 // Название события; глаголы склоняем по полу ребёнка
 function labelOf(e) {
   if (e.type === 'poop') return poopVerb(children.activeChild?.gender)
+  if (e.type === 'sleep' && napNo.value[e.id]) return `Сон ${napNo.value[e.id]}`
   return typeOf(e).label
+}
+
+// Подпись для события «Зубы»: сколько зубов отмечено
+function teethLabel(e) {
+  if (e.type === 'teeth' && Array.isArray(e.teeth) && e.teeth.length) {
+    const n = e.teeth.length
+    return `${n} ${plural(n, 'зуб', 'зуба', 'зубов')}`
+  }
+  return ''
 }
 
 const dayEvents = computed(() => {
   const from = dayjs(props.dayTs).startOf('day').valueOf()
   const to = dayjs(props.dayTs).endOf('day').valueOf()
+  // Хронологический порядок: раннее сверху, позднее снизу
   return events.sorted
     .filter(e => {
-      const end = e.endedAt ?? (EVENT_TYPES[e.type]?.kind === 'interval' ? now.value : e.startedAt)
+      if (e.planned) return false
+      const end = e.endedAt ?? (eventKind(e) === 'interval' ? now.value : e.startedAt)
       return e.startedAt <= to && end >= from
     })
-    .reverse()
 })
 
 function typeOf(e) {
@@ -42,15 +63,21 @@ function typeOf(e) {
 
 function timeLabel(e) {
   const start = dayjs(e.startedAt).format('HH:mm')
-  if (typeOf(e).kind !== 'interval') return start
+  if (eventKind(e) !== 'interval') return start
   if (e.endedAt == null) return `${start} → сейчас`
   return `${start} – ${dayjs(e.endedAt).format('HH:mm')}`
 }
 
 function durLabel(e) {
-  if (typeOf(e).kind !== 'interval') return ''
+  if (eventKind(e) !== 'interval') return ''
   const end = e.endedAt ?? now.value
   return formatDurationMin((end - e.startedAt) / 60000)
+}
+
+// Числовое значение события (мл, °C), если задано
+function amountLabel(e) {
+  const unit = EVENT_TYPES[e.type]?.amountUnit
+  return unit != null && e.amount != null ? `${e.amount} ${unit}` : ''
 }
 </script>
 
@@ -70,9 +97,9 @@ function durLabel(e) {
       <span class="grow tl-body">
         <span class="tl-title">
           {{ labelOf(e) }}
-          <span v-if="e.endedAt == null && typeOf(e).kind === 'interval'" class="ongoing">идёт</span>
+          <span v-if="e.endedAt == null && eventKind(e) === 'interval'" class="ongoing">идёт</span>
         </span>
-        <span class="tl-time muted num">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template></span>
+        <span class="tl-time muted num">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template><template v-if="amountLabel(e)"> · {{ amountLabel(e) }}</template><template v-if="teethLabel(e)"> · {{ teethLabel(e) }}</template></span>
         <span v-if="e.note" class="tl-note muted">{{ e.note }}</span>
       </span>
       <Icon v-if="editable" name="chevron-right" :size="18" class="tl-chevron" />

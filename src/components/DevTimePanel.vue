@@ -32,7 +32,7 @@ function reset() {
   <div class="dev-time">
     <div v-if="open" class="panel">
       <div class="panel-head">
-        <span class="tag">DEV · время</span>
+        <span class="tag">DEV · {{ label }}</span>
         <button class="x" @click="open = false" aria-label="Закрыть"><Icon name="close" :size="18" /></button>
       </div>
       <input type="datetime-local" :value="inputValue" @input="onInput" />
@@ -48,8 +48,8 @@ function reset() {
       <p class="hint">Симулированное «сейчас» влияет на подсказки и новые события. Сохраняется до сброса.</p>
     </div>
 
-    <button class="fab" :class="{ active: simulated }" @click="open = !open">
-      <Icon name="clock" :size="16" /> {{ label }}
+    <button class="fab" :class="{ active: simulated }" :title="label" aria-label="DEV: управление временем" @click="open = !open">
+      <Icon name="clock" :size="20" />
     </button>
   </div>
 </template>
@@ -72,14 +72,12 @@ function reset() {
 .fab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   background: var(--c-text);
   color: var(--c-bg);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
   opacity: 0.85;
 }
 

@@ -4,6 +4,7 @@ import { QUICK_TOPICS } from '../data/quickTopics'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { ageInMonths } from '../logic/age'
+import Icon from './Icon.vue'
 
 const children = useChildrenStore()
 const now = useNow()
@@ -27,6 +28,7 @@ function toggle(id) {
 <template>
   <div v-if="topics.length" class="quick">
     <div class="tags">
+      <router-link to="/advice" class="tag tag-advice"><Icon name="bulb" :size="16" />Советы</router-link>
       <button
         v-for="t in topics"
         :key="t.id"
@@ -54,6 +56,9 @@ function toggle(id) {
 }
 
 .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 7px 14px;
   min-height: 40px;
   border-radius: 999px;
@@ -61,9 +66,17 @@ function toggle(id) {
   color: var(--c-text);
   font-size: var(--fs-sm);
   font-weight: 500;
+  text-decoration: none;
 }
 
 .tag.active {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+/* Выделенный чип «Советы» — ведёт на страницу базы знаний */
+.tag-advice {
   background: var(--c-primary);
   border-color: var(--c-primary);
   color: var(--c-on-primary);

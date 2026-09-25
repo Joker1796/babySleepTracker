@@ -1,11 +1,15 @@
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
+import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
-import { useSettlingStore } from '../stores/settling'
+import { useIllnessStore } from '../stores/illness'
+import { useUiStore } from '../stores/ui'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
-import { formatDurationMin, plural } from '../logic/age'
+import { isDaytimeStart } from '../logic/sleepAnalyzer'
+import { formatDurationMin, plural, ageInMonths } from '../logic/age'
 import { buildStatus, wokeAtLabel as wokeAt, timeToSleepLabel as timeToSleep, wakeProgressValue } from '../logic/status'
 import { normsCappedForChild } from '../logic/norms'
 import ChildSwitcher from '../components/ChildSwitcher.vue'
@@ -13,15 +17,36 @@ import SleepButton from '../components/SleepButton.vue'
 import SettlingFlow from '../components/SettlingFlow.vue'
 import DayGreeting from '../components/DayGreeting.vue'
 import EventButtons from '../components/EventButtons.vue'
+import EventEditSheet from '../components/EventEditSheet.vue'
 import AdviceCard from '../components/AdviceCard.vue'
 import QuickTopics from '../components/QuickTopics.vue'
-import EventEditSheet from '../components/EventEditSheet.vue'
 import Icon from '../components/Icon.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
-const settling = useSettlingStore()
+const illness = useIllnessStore()
+const ui = useUiStore()
 const now = useNow()
+const router = useRouter()
+
+// «Ваш ребёнок заболел?» — начинаем болезнь (если ещё не идёт) и открываем вкладку
+async function startIllness() {
+  if (!illness.hasActive) await illness.start()
+  router.push('/illness')
+}
+
+// «Скрывать подсказки» — свой флаг у активного ребёнка
+const hideHints = computed(() => !!children.activeChild?.hideHints)
+
+// Возраст активного ребёнка в месяцах (для скрытия «Быстрых тем» после года)
+const childAgeMonths = computed(() => {
+  const bd = children.activeChild?.birthDate
+  return bd ? ageInMonths(bd, now.value) : null
+})
+
+// Форма события: для типов с количеством (смесь мл, температура °C)
+// и для исправления забытого сна
+const sheetModel = ref(null)
 
 const toast = ref('')
 let toastTimer = null
@@ -32,9 +57,7 @@ const guidance = computed(() => {
   return buildGuidance({
     child: children.activeChild,
     events: events.sorted,
-    now: now.value,
-    settling: settling.get(children.activeChild.id),
-    extension: settling.getExtension(children.activeChild.id)
+    now: now.value
   })
 })
 
@@ -43,25 +66,12 @@ const advice = computed(() => guidance.value?.advisor || null)
 // Открытый сон дольше 16 ч — вероятно, забыли отметить пробуждение.
 // Прогноз на нём не строится; предлагаем поправить время в редакторе.
 const staleSleep = computed(() => advice.value?.state.staleSleep || null)
-const sheetModel = ref(null)
 function fixStaleSleep() {
   sheetModel.value = staleSleep.value
 }
 
-// Если малыш заснул (в т.ч. через большую кнопку) — закрываем сессии укладывания и продления
-watch(
-  () => events.currentSleep?.id,
-  (sleepId) => {
-    const id = children.activeChild?.id
-    if (sleepId && id) {
-      if (settling.get(id)) settling.clear(id)
-      if (settling.getExtension(id)) settling.clearExtension(id)
-    }
-  }
-)
-
 // Ночное пробуждение для верхней карточки: пока идёт ночь и малыш проснулся,
-// показываем «Ночное пробуждение», а не «Бодрствует» — даже во время продления сна.
+// показываем «Ночное пробуждение», а не «Бодрствует».
 const isNightWaking = computed(() => !!guidance.value?.isNightWaking)
 
 const gender = computed(() => children.activeChild?.gender || null)
@@ -73,13 +83,19 @@ const timeToSleepLabel = computed(() => timeToSleep(advice.value))
 
 // Крупное время на главном: «1:20 ч» или «45 мин». Только для «спит» и «бодрствует»;
 // в остальных состояниях (ночное пробуждение, забытый сон, нет данных) — заголовок статуса.
+// Во сне подпись сразу говорит, какой идёт сон: «Спит дневной сон» / «Спит ночной сон».
 const hero = computed(() => {
   const s = advice.value?.state
   if (!s) return null
   let label = null
   let min = null
-  if (s.sleeping) { label = 'Спит'; min = s.sleepingMin }
-  else if (!isNightWaking.value && s.awakeMin != null) { label = 'Бодрствует'; min = s.awakeMin }
+  if (s.sleeping) {
+    label = isDaytimeStart(s.sleeping) ? 'Спит дневной сон' : 'Спит ночной сон'
+    min = s.sleepingMin
+  } else if (!isNightWaking.value && s.awakeMin != null) {
+    label = 'Бодрствует'
+    min = s.awakeMin
+  }
   if (min == null) return null
   const m = Math.max(0, Math.floor(min))
   return m < 60
@@ -90,30 +106,36 @@ const hero = computed(() => {
 // Старше года нормы считаются по группе 10–12 мес — показываем пометку
 const normsCapped = computed(() => normsCappedForChild(children.activeChild, now.value))
 
-// Флоу сам даёт кнопку «Уснул» во время укладывания — большая кнопка тогда лишняя
-const showSleepButton = computed(() =>
-  guidance.value && !['settling', 'nap-extension'].includes(guidance.value.phase)
-)
+const showSleepButton = computed(() => !!guidance.value)
+
+// Универсальное закрытие подсказок крестиком «на день»: ключ включает дату,
+// поэтому назавтра подсказка появляется снова (если ещё актуальна).
+function dayKey(base) {
+  const id = children.activeChild?.id
+  return id ? `${base}:${id}:${dayjs(now.value).format('YYYY-MM-DD')}` : null
+}
+function hidden(base) {
+  const k = dayKey(base)
+  return !!k && ui.isDismissed(k)
+}
+function hide(base) {
+  const k = dayKey(base)
+  if (k) ui.dismiss(k)
+}
 
 const showGreeting = computed(() =>
-  guidance.value?.greeting && !settling.isGreetingDismissed(children.activeChild?.id)
+  guidance.value?.greeting && !hideHints.value && !hidden('greeting')
 )
 
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
 // они доступны в разделе «Советы». Оставляем только ситуативные.
-// Пока висит забытый сон, данные дня недостоверны — подсказки по ним не показываем
+// Пока висит забытый сон, данные дня недостоверны — подсказки по ним не показываем.
 const secondaryAdvices = computed(() =>
   staleSleep.value ? [] : advice.value?.advices.filter(a => !a.general).slice(0, 4) || []
 )
 
-// Крестик закрывает конкретную подсказку из профиля (соска, укачивание, пеленание и т.п.)
-// до конца дня. Ситуативные подсказки (перегул, пора спать) остаются всегда.
-const visibleAdvices = computed(() =>
-  secondaryAdvices.value.filter(a => !a.profile || !settling.isAdviceDismissed(children.activeChild?.id, a.id))
-)
-function dismissAdvice(id) {
-  settling.dismissAdvice(children.activeChild?.id, id)
-}
+// Скрываем закрытые крестиком карточки-подсказки (на день)
+const visibleAdvices = computed(() => secondaryAdvices.value.filter(a => !hidden(`advice-${a.id}`)))
 
 function showToast(msg) {
   toast.value = msg
@@ -121,36 +143,12 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toast.value = '' }, 2200)
 }
 
-function dismissGreeting() {
-  settling.dismissGreeting(children.activeChild?.id)
-}
+// Поздравление с месяцем/годом остаётся видимым независимо от «Скрывать подсказки».
+const showMilestone = computed(() => !!guidance.value?.milestone && !hidden('milestone'))
 
-function extendNap() {
-  settling.startExtension(children.activeChild?.id)
-}
-
-const showMilestone = computed(() =>
-  guidance.value?.milestone && !settling.isMilestoneDismissed(children.activeChild?.id)
+const showAchievement = computed(() =>
+  !!guidance.value?.achievement && !staleSleep.value && !hideHints.value && !hidden('achievement')
 )
-function dismissMilestone() {
-  settling.dismissMilestone(children.activeChild?.id)
-}
-
-// Поддержка для мамы — можно закрыть крестиком на день
-const showEncouragement = computed(() =>
-  !staleSleep.value && guidance.value?.encouragement && !settling.isEncouragementDismissed(children.activeChild?.id)
-)
-function dismissEncouragement() {
-  settling.dismissEncouragement(children.activeChild?.id)
-}
-
-// Режим расчёта: 'auto' (наш движок по возрасту) или 'custom' (параметры родителя)
-const regimeMode = computed(() => children.activeChild?.regime?.mode || 'auto')
-function toggleRegime() {
-  const id = children.activeChild?.id
-  if (!id) return
-  children.setRegimeMode(id, regimeMode.value === 'custom' ? 'auto' : 'custom')
-}
 </script>
 
 <template>
@@ -161,27 +159,18 @@ function toggleRegime() {
     <div v-if="showMilestone" class="note milestone">
       <Icon name="star" class="note-icon accent" />
       <p class="grow">{{ guidance.milestone.text }}</p>
-      <button class="note-close" @click="dismissMilestone" aria-label="Скрыть"><Icon name="close" :size="16" /></button>
+      <button class="note-close" aria-label="Закрыть" @click="hide('milestone')"><Icon name="close" :size="16" /></button>
     </div>
 
-    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @dismiss="dismissGreeting" />
+    <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @close="hide('greeting')" />
 
-    <!-- Главное: состояние и крупное время -->
+    <!-- Главное: состояние и крупное время, сводка дня и сценарий фазы -->
     <section v-if="advice" class="hero" aria-live="polite">
       <div class="hero-top">
         <span class="hero-label">
           <Icon :name="status.icon" :size="18" />
           {{ hero ? hero.label : status.title }}
         </span>
-        <button
-          class="regime-toggle"
-          :class="{ custom: regimeMode === 'custom' }"
-          @click="toggleRegime"
-          :aria-label="`Режим расчёта: ${regimeMode === 'custom' ? 'свой' : 'авто'}. Переключить`"
-        >
-          <Icon name="sliders" :size="16" />
-          {{ regimeMode === 'custom' ? 'Свой' : 'Авто' }}
-        </button>
       </div>
 
       <div v-if="hero" class="hero-time num">
@@ -202,10 +191,13 @@ function toggleRegime() {
       </div>
 
       <div class="day-line num">
-        <span>Днём сегодня</span>
-        <span>{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
+        <span>{{ advice.today.napCount }} {{ plural(advice.today.napCount, 'дневной сон', 'дневных сна', 'дневных снов') }} сегодня</span>
+        <span>{{ formatDurationMin(advice.today.daySleepMin) }}</span>
       </div>
       <p v-if="normsCapped" class="muted small norms-capped">Нормы рассчитаны до года — после года ориентируйтесь в первую очередь на самочувствие малыша.</p>
+
+      <!-- Пора укладывать / сон — встроено в ту же плашку -->
+      <SettlingFlow v-if="guidance && !staleSleep && guidance.phase !== 'active'" embedded :guidance="guidance" />
     </section>
 
     <!-- Забытая отметка пробуждения -->
@@ -216,45 +208,41 @@ function toggleRegime() {
     </div>
 
     <!-- Достижение дня -->
-    <div v-if="guidance?.achievement && !staleSleep" class="note trophy">
+    <div v-if="showAchievement" class="note trophy">
       <Icon name="star" class="note-icon accent" />
       <p class="grow">{{ guidance.achievement.text }}</p>
+      <button class="note-close" aria-label="Закрыть" @click="hide('achievement')"><Icon name="close" :size="16" /></button>
     </div>
-
-    <!-- Поддержка для мамы — тихая строка, без плашки -->
-    <div v-if="showEncouragement" class="support">
-      <p class="grow">{{ guidance.encouragement.text }}</p>
-      <button class="note-close" @click="dismissEncouragement" aria-label="Скрыть"><Icon name="close" :size="16" /></button>
-    </div>
-
-    <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
-    <SettlingFlow v-if="guidance && !staleSleep && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов')" />
-
-    <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул» -->
-    <button v-if="guidance?.showExtendNap" class="btn block secondary extend-btn" @click="extendNap">
-      <Icon name="repeat" :size="18" /> Продлить сон
-    </button>
 
     <SleepButton v-if="showSleepButton" :stale="!!staleSleep" @fix="fixStaleSleep" />
-    <EventButtons @logged="showToast" />
+    <EventButtons @logged="showToast" @edit="e => (sheetModel = e)" />
 
     <!-- Чем заняться (активное бодрствование) — под кнопками активностей -->
-    <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов')" />
+    <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" />
 
-    <section v-if="visibleAdvices.length" class="section">
-      <h2 class="section-title">Подсказки</h2>
+    <section v-if="!hideHints && visibleAdvices.length" class="section">
+      <h2 class="section-title">Ещё подсказки</h2>
       <AdviceCard
         v-for="a in visibleAdvices"
         :key="a.id"
         :advice="a"
-        :dismissible="a.profile"
-        @dismiss="dismissAdvice(a.id)"
+        @close="hide(`advice-${a.id}`)"
       />
     </section>
 
-    <!-- Быстрые темы-справки -->
-    <section class="section">
-      <h2 class="section-title">Быстрые ответы</h2>
+    <!-- Режим «Болезнь»: кнопка запуска или ссылка на активную вкладку -->
+    <button v-if="!illness.hasActive" class="btn block secondary sick-btn" @click="startIllness">
+      <Icon name="thermometer" :size="18" /> Ваш ребёнок заболел?
+    </button>
+    <router-link v-else to="/illness" class="note sick-active">
+      <Icon name="thermometer" class="note-icon urgent" />
+      <span class="grow">Малыш болеет — открыть вкладку «Болезнь»</span>
+      <Icon name="chevron-right" :size="20" class="sick-arrow" />
+    </router-link>
+
+    <!-- Быстрые темы-справки (для детей до года) -->
+    <section v-if="childAgeMonths == null || childAgeMonths < 12" class="section">
+      <h2 class="section-title">Быстрые темы</h2>
       <QuickTopics />
     </section>
 
@@ -312,34 +300,6 @@ function toggleRegime() {
   color: var(--c-text-soft);
 }
 
-/* Переключатель режима расчёта — тихая текстовая кнопка */
-.regime-toggle {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  min-height: 36px;
-  border-radius: 999px;
-  border: 1px solid var(--c-border);
-  color: var(--c-text-soft);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-/* Зона касания 44px при компактном виде кнопки */
-.regime-toggle::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-}
-
-.regime-toggle.custom {
-  border-color: var(--c-primary);
-  color: var(--c-text);
-}
-
 /* Окно бодрствования: тонкая линия с точкой на текущем моменте */
 .ww { margin-top: var(--sp-4); }
 
@@ -395,7 +355,7 @@ function toggleRegime() {
 
 .norms-capped { margin: var(--sp-2) 0 0; }
 
-/* ── Заметки: достижение, поздравление, забытый сон ── */
+/* ── Заметки: достижение, поздравление, забытый сон, болезнь ── */
 .note {
   display: flex;
   align-items: center;
@@ -409,8 +369,10 @@ function toggleRegime() {
 
 .note p { margin: 0; }
 
+.note-icon { flex-shrink: 0; }
 .note-icon.accent { color: var(--c-accent); }
 .note-icon.warn { color: var(--c-warn); }
+.note-icon.urgent { color: var(--c-urgent); }
 
 .milestone p {
   font-family: var(--font-serif);
@@ -435,23 +397,21 @@ function toggleRegime() {
   color: var(--c-text-soft);
 }
 
-.support {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  margin: 0 var(--sp-1) var(--sp-4);
+/* Кнопка «Ваш ребёнок заболел?» и ссылка на активную болезнь */
+.sick-btn {
+  margin-top: var(--sp-5);
+  gap: 8px;
 }
 
-.support p {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: var(--fs-base);
-  line-height: 1.55;
-  color: var(--c-text-soft);
+.sick-active {
+  margin-top: var(--sp-5);
+  min-height: 52px;
+  text-decoration: none;
+  color: var(--c-text);
+  border-color: var(--c-urgent);
 }
 
-.extend-btn { margin-bottom: 10px; }
+.sick-arrow { flex-shrink: 0; color: var(--c-text-soft); }
 
 /* ── Разделы ниже кнопок ── */
 .section { margin-top: var(--sp-5); }

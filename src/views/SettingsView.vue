@@ -1,26 +1,29 @@
 <script setup>
-import { ref } from 'vue'
-import dayjs from 'dayjs'
+import { ref, computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
+import { useIllnessStore } from '../stores/illness'
 import { useSettingsStore } from '../stores/settings'
-import { formatChildAge } from '../logic/age'
-import { getFeeding, getAid } from '../data/childOptions'
 import { exportBackup, readBackupFile, importBackup } from '../utils/backup'
 import { plural } from '../logic/age'
 import ChildForm from '../components/ChildForm.vue'
+import PlanButtonsEditor from '../components/PlanButtonsEditor.vue'
 import Icon from '../components/Icon.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
+const illness = useIllnessStore()
 const settings = useSettingsStore()
 
-const editingChild = ref(null) // null | 'new' | объект ребёнка
+const tab = ref(children.activeChildId)  // child.id | 'new' | null (авто → активный ребёнок)
+const formKey = ref(0)  // ремоунт формы: смена вкладки / сброс правок
 const fileInput = ref(null)
 const message = ref('')
 const reasons = ref([]) // причины пропуска записей при импорте
 const pendingImport = ref(null) // { data, fileName } — ждёт выбора «Заменить/Добавить»
 const importing = ref(false)
+const savedFlash = ref(false)
+let savedTimer = null
 
 const themes = [
   { id: 'auto', label: 'Как в системе' },
@@ -28,14 +31,45 @@ const themes = [
   { id: 'dark', label: 'Тёмная' }
 ]
 
+const showNew = computed(() => tab.value === 'new' || children.children.length === 0)
+const selectedChild = computed(() =>
+  children.children.find(c => c.id === tab.value) || children.activeChild
+)
+
+function tabStyle(child) {
+  const active = !showNew.value && selectedChild.value?.id === child.id
+  return active ? { background: child.color, borderColor: child.color, color: '#fff' } : {}
+}
+
 async function removeChild(child) {
   if (!confirm(`Удалить профиль «${child.name}» и все его события? Это действие необратимо.`)) return
   await children.remove(child.id)
   if (children.activeChild) await events.load(children.activeChild.id)
 }
 
+async function onDelete(child) {
+  await removeChild(child)
+  tab.value = null
+}
+
 function onSaved() {
-  editingChild.value = null
+  if (tab.value === 'new') {
+    tab.value = children.children[children.children.length - 1]?.id ?? null
+  }
+  savedFlash.value = true
+  clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => { savedFlash.value = false }, 1600)
+}
+
+function onCancel() {
+  formKey.value++ // ремоунт → сброс несохранённых правок
+}
+
+// Режим расчёта активного профиля: 'auto' (движок по возрасту) / 'custom' (свои параметры)
+const regimeMode = computed(() => selectedChild.value?.regime?.mode || 'auto')
+function toggleRegime() {
+  const id = selectedChild.value?.id
+  if (id) children.setRegimeMode(id, regimeMode.value === 'custom' ? 'auto' : 'custom')
 }
 
 async function onImportFile(e) {
@@ -58,9 +92,13 @@ async function applyImport(replace) {
   try {
     const res = await importBackup(pending.data, { replace })
     await children.load()
-    if (children.activeChild) await events.load(children.activeChild.id)
-    const skippedTotal = res.skipped.children + res.skipped.events
+    if (children.activeChild) {
+      await events.load(children.activeChild.id)
+      await illness.load(children.activeChild.id)
+    }
+    const skippedTotal = res.skipped.children + res.skipped.events + (res.skipped.illnesses || 0)
     message.value = `Импортировано: детей — ${res.imported.children}, событий — ${res.imported.events}` +
+      (res.imported.illnesses ? `, болезней — ${res.imported.illnesses}` : '') +
       (skippedTotal ? `. Пропущено некорректных записей: ${skippedTotal}` : '')
     reasons.value = res.reasons
   } catch (err) {
@@ -82,39 +120,67 @@ function cancelImport() {
 
     <div class="card">
       <div class="card-title">Дети</div>
-      <div v-for="child in children.children" :key="child.id">
-        <div v-if="editingChild !== child" class="row child-row">
-          <span class="dot" :style="{ background: child.color }"></span>
-          <div class="grow">
-            <div class="child-name">{{ child.name }}</div>
-            <div class="muted small">
-              {{ formatChildAge(child) }} · <span class="num">{{ dayjs(child.birthDate).format('D.MM.YYYY') }}</span>
-              <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).short }}</template>
-            </div>
-            <div v-if="child.aids?.length" class="muted small aids">
-              {{ child.aids.map(id => getAid(id)?.label).filter(Boolean).join(', ') }}
-            </div>
-          </div>
-          <button class="icon-btn" @click="editingChild = child" :aria-label="`Изменить профиль: ${child.name}`">
-            <Icon name="edit" :size="20" />
-          </button>
-          <button class="icon-btn danger" @click="removeChild(child)" :aria-label="`Удалить профиль: ${child.name}`">
-            <Icon name="trash" :size="20" />
-          </button>
-        </div>
-        <div v-else class="edit-box">
-          <ChildForm :child="child" @saved="onSaved" @cancel="editingChild = null" />
-        </div>
+      <div class="tabs" role="tablist" aria-label="Профили детей">
+        <button
+          v-for="child in children.children"
+          :key="child.id"
+          class="chip tab"
+          :class="{ active: !showNew && selectedChild?.id === child.id }"
+          role="tab"
+          :aria-selected="!showNew && selectedChild?.id === child.id"
+          @click="tab = child.id"
+        ><span class="dot" :style="{ background: child.color }"></span>{{ child.name }}</button>
+        <button
+          class="chip tab tab-add"
+          :class="{ active: showNew }"
+          role="tab"
+          :aria-selected="showNew"
+          aria-label="Добавить ребёнка"
+          @click="tab = 'new'"
+        ><Icon name="plus" :size="18" /></button>
       </div>
 
-      <div v-if="editingChild === 'new'" class="edit-box">
-        <h3>Новый ребёнок</h3>
-        <ChildForm @saved="onSaved" />
-        <button class="btn secondary block cancel-new" @click="editingChild = null">Отмена</button>
+      <div class="panel">
+        <template v-if="showNew">
+          <h3 class="panel-title">Новый ребёнок</h3>
+          <ChildForm :key="'new-' + formKey" @saved="onSaved" />
+          <button v-if="children.children.length" class="btn secondary block cancel-new" @click="tab = null">Отмена</button>
+        </template>
+        <template v-else-if="selectedChild">
+          <div class="panel-head">
+            <span class="dot" :style="{ background: selectedChild.color }"></span>
+            <span class="panel-name">{{ selectedChild.name }}</span>
+            <Transition name="fade">
+              <span v-if="savedFlash" class="saved-flash" role="status"><Icon name="check" :size="14" /> Сохранено</span>
+            </Transition>
+          </div>
+          <ChildForm
+            :key="selectedChild.id + '-' + formKey"
+            :child="selectedChild"
+            @saved="onSaved"
+            @cancel="onCancel"
+            @delete="onDelete(selectedChild)"
+          />
+        </template>
       </div>
-      <button v-else class="btn secondary block add-child" @click="editingChild = 'new'">
-        <Icon name="plus" :size="18" /> Добавить ребёнка
+    </div>
+
+    <div v-if="selectedChild && !showNew" class="card">
+      <div class="card-title">Режим расчёта</div>
+      <button class="btn block regime-btn" :class="{ custom: regimeMode === 'custom' }" @click="toggleRegime">
+        <Icon :name="regimeMode === 'custom' ? 'sliders' : 'star'" :size="18" />
+        {{ regimeMode === 'custom' ? 'Свой режим' : 'Авто' }}
       </button>
+      <p class="muted small regime-note">
+        {{ regimeMode === 'custom'
+          ? 'Подсказки считаются по вашим параметрам (окна бодрствования, число снов). Настроить — во вкладке «Мой режим».'
+          : 'Подсказки считаются автоматически по возрасту ребёнка. Нажмите, чтобы задать свои параметры.' }}
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Кнопки планов</div>
+      <PlanButtonsEditor />
     </div>
 
     <div class="card">
@@ -182,7 +248,8 @@ function cancelImport() {
             <p class="muted small">
               В файле «{{ pendingImport.fileName }}»:
               {{ pendingImport.data.children.length }} {{ plural(pendingImport.data.children.length, 'профиль', 'профиля', 'профилей') }},
-              {{ pendingImport.data.events.length }} {{ plural(pendingImport.data.events.length, 'событие', 'события', 'событий') }}.
+              {{ pendingImport.data.events.length }} {{ plural(pendingImport.data.events.length, 'событие', 'события', 'событий') }}<template v-if="pendingImport.data.illnesses?.length">,
+              {{ pendingImport.data.illnesses.length }} {{ plural(pendingImport.data.illnesses.length, 'болезнь', 'болезни', 'болезней') }}</template>.
             </p>
             <p class="small">
               <b>Заменить</b> — удалить текущие данные и загрузить из файла.<br />
@@ -201,51 +268,81 @@ function cancelImport() {
 </template>
 
 <style scoped>
-.child-row {
-  padding: var(--sp-2) 0;
-  border-top: 1px solid var(--c-border);
-  min-height: 60px;
+/* Вкладки детей — контурные чипы, активная залита чернилами */
+.tabs {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--c-border);
 }
 
-.child-row:first-child,
-.edit-box:first-child { border-top: none; }
+.tab {
+  flex-shrink: 0;
+  min-height: 44px;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+}
 
-.child-name {
+.tab.active { color: var(--c-on-primary); }
+
+.tab .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tab-add { min-width: 44px; justify-content: center; padding: 6px 12px; }
+
+.panel { padding-top: var(--sp-3); }
+
+.panel-title { margin: 0 0 var(--sp-2); }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.panel-name {
   font-family: var(--font-serif);
   font-size: var(--fs-md);
   font-weight: 500;
 }
 
-.dot {
+.saved-flash {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c-walk);
+  color: var(--c-walk);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.panel-head .dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.aids { margin-top: 2px; }
-
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  color: var(--c-text-soft);
-}
-
-.icon-btn.danger { color: var(--c-urgent); }
-
-.edit-box {
-  padding: var(--sp-3) 0;
-  border-top: 1px solid var(--c-border);
-}
-
 .cancel-new { margin-top: var(--sp-2); }
 
-.add-child { margin-top: var(--sp-3); }
+.regime-btn { min-height: 52px; }
+
+.regime-btn.custom {
+  background: transparent;
+  color: var(--c-text);
+  border: 1px solid var(--c-primary);
+}
+
+.regime-note { margin: var(--sp-2) 0 0; }
 
 .theme-row { flex-wrap: wrap; gap: var(--sp-2); }
 
@@ -296,6 +393,7 @@ function cancelImport() {
   gap: var(--sp-2);
   margin-top: var(--sp-3);
 }
+
 .night-row {
   display: flex;
   align-items: flex-start;

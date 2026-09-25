@@ -3,6 +3,7 @@ import { db, uid } from '../db'
 import { correctedAgeInMonths } from '../logic/age'
 import { seedRegimeFromNorms } from '../data/regime'
 import { CHILD_COLORS, DEFAULT_FEEDING } from '../db/childDefaults'
+import { DEFAULT_MAIN_BUTTONS } from '../data/eventTypes'
 
 export { CHILD_COLORS }
 
@@ -22,7 +23,7 @@ export const useChildrenStore = defineStore('children', {
       this.children = await db.children.toArray()
       this.loaded = true
     },
-    async add({ name, birthDate, dueDate, color, feeding, aids, gender }) {
+    async add({ name, birthDate, dueDate, color, feeding, gender, mainButtons, hideHints }) {
       const child = {
         id: uid(),
         name,
@@ -31,8 +32,9 @@ export const useChildrenStore = defineStore('children', {
         dueDate: dueDate || null,
         color: color || CHILD_COLORS[this.children.length % CHILD_COLORS.length],
         feeding: feeding || DEFAULT_FEEDING,
-        aids: aids || [],
         gender: gender || null,
+        mainButtons: mainButtons || DEFAULT_MAIN_BUTTONS,
+        hideHints: hideHints || false,
         regime: { mode: 'auto' }
       }
       await db.children.put(child)
@@ -41,7 +43,7 @@ export const useChildrenStore = defineStore('children', {
       return child
     },
     async update(child) {
-      // Снимаем реактивность Vue: вложенные массивы/объекты (например, aids, regime)
+      // Снимаем реактивность Vue: вложенные массивы/объекты (например, mainButtons, regime)
       // могут остаться Proxy, а IndexedDB их не клонирует (DataCloneError).
       const plain = JSON.parse(JSON.stringify(child))
       await db.children.put(plain)

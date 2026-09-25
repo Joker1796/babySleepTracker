@@ -4,12 +4,12 @@ import Icon from './Icon.vue'
 defineProps({
   greeting: { type: Object, required: true }
 })
-const emit = defineEmits(['dismiss'])
+defineEmits(['close'])
 </script>
 
 <template>
   <div class="card greeting">
-    <button class="close" @click="emit('dismiss')" aria-label="Скрыть"><Icon name="close" :size="16" /></button>
+    <button class="greet-close" aria-label="Закрыть" @click="$emit('close')"><Icon name="close" :size="16" /></button>
     <div class="greet-head">
       <Icon name="sunrise" class="greet-icon" />
       <p class="greet-line">{{ greeting.line }}</p>
@@ -42,7 +42,7 @@ const emit = defineEmits(['dismiss'])
 
 }
 
-.close {
+.greet-close {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -58,7 +58,6 @@ const emit = defineEmits(['dismiss'])
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding-right: 24px;
 }
 
 .greet-icon { color: var(--c-accent); margin-top: 2px; }

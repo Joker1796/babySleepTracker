@@ -64,8 +64,8 @@ describe('validateBackup', () => {
     const r = validateBackup(backup([child()], [ev()]), { now: NOW })
     expect(r.children).toHaveLength(1)
     expect(r.events).toHaveLength(1)
-    expect(r.skipped).toEqual({ children: 0, events: 0 })
-    expect(r.children[0]).toMatchObject({ feeding: 'breast', aids: [], gender: null, regime: { mode: 'auto' } })
+    expect(r.skipped).toEqual({ children: 0, events: 0, illnesses: 0 })
+    expect(r.children[0]).toMatchObject({ feeding: 'breast', gender: null, regime: { mode: 'auto' } })
     expect(r.children[0].color).toBeTruthy()
     expect(r.events[0].note).toBe('')
   })
@@ -115,12 +115,28 @@ describe('validateBackup', () => {
     const r = validateBackup(backup([child({ birthDate: 'bad' })], [ev()]), { now: NOW })
     expect(r.children).toHaveLength(0)
     expect(r.events).toHaveLength(0)
-    expect(r.skipped).toEqual({ children: 1, events: 1 })
+    expect(r.skipped).toEqual({ children: 1, events: 1, illnesses: 0 })
   })
 
   it('в режиме «Добавить» события можно привязать к уже существующему ребёнку', () => {
     const r = validateBackup(backup([], [ev({ childId: 'old' })]), { existingChildIds: ['old'], now: NOW })
     expect(r.events).toHaveLength(1)
+  })
+
+  it('болезни: корректные проходят, без ребёнка или времени — пропускаются; копия v1 без болезней — ок', () => {
+    const data = {
+      ...backup([child()], []),
+      version: 2,
+      illnesses: [
+        { id: 'i1', childId: 'c1', startedAt: NOW - 86400000 },
+        { id: 'i2', childId: 'nobody', startedAt: NOW },
+        { id: 'i3', childId: 'c1' }
+      ]
+    }
+    const r = validateBackup(data, { now: NOW })
+    expect(r.illnesses.map(i => i.id)).toEqual(['i1'])
+    expect(r.skipped.illnesses).toBe(2)
+    expect(validateBackup(backup([child()], []), { now: NOW }).illnesses).toEqual([])
   })
 })
 

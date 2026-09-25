@@ -20,7 +20,8 @@ async function onImportFile(e) {
     await children.load()
     if (children.children[0]) children.setActive(children.children[0].id)
     // После загрузки данных App сам переключится на главный экран
-    message.value = `Импортировано: детей — ${res.imported.children}, событий — ${res.imported.events}`
+    message.value = `Импортировано: детей — ${res.imported.children}, событий — ${res.imported.events}` +
+      (res.imported.illnesses ? `, болезней — ${res.imported.illnesses}` : '')
   } catch (err) {
     isError.value = true
     message.value = `Ошибка импорта: ${err.message}`

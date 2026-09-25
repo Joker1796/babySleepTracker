@@ -2,10 +2,9 @@
 import Icon from './Icon.vue'
 
 defineProps({
-  advice: { type: Object, required: true },
-  dismissible: { type: Boolean, default: false }
+  advice: { type: Object, required: true }
 })
-defineEmits(['dismiss'])
+defineEmits(['close'])
 
 // Красный фон — только для безопасности (priority 3). Остальные подсказки —
 // строки дневника с маленькой меткой слева, без цветных плашек.
@@ -18,10 +17,9 @@ const classes = { 3: 'urgent', 2: 'warn', 1: 'info' }
     <span v-else class="advice-dot" aria-hidden="true"></span>
     <p class="advice-text grow">{{ advice.text }}</p>
     <button
-      v-if="dismissible"
       class="advice-close"
-      @click="$emit('dismiss')"
-      aria-label="Скрыть подсказку"
+      aria-label="Закрыть"
+      @click="$emit('close')"
     ><Icon name="close" :size="16" /></button>
   </div>
 </template>
