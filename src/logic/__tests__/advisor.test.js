@@ -234,3 +234,18 @@ describe('buildAdvice: устойчивость и нормы', () => {
     expect(a.bedtimeAt).toBe(ts('2026-07-04T19:30'))
   })
 })
+
+describe('next-is-night: формулировка про дневные сны', () => {
+  const rule = ADVISOR_RULES.find(r => r.id === 'next-is-night')
+  const ctx = napCount => ({ today: { napCount }, norms: { naps: [3, 4] }, bedtimeAt: 0, t: () => '19:30' })
+
+  it('снов меньше нормы — не называет их количество достаточным', () => {
+    const text = rule.text(ctx(1))
+    expect(text).not.toMatch(/достаточно|в пределах нормы/)
+    expect(text).toMatch(/Для дневного сна уже поздно/)
+  })
+
+  it('снов по норме — говорит, что это в пределах нормы', () => {
+    expect(rule.text(ctx(3))).toMatch(/Дневных снов сегодня — 3, это в пределах нормы/)
+  })
+})
