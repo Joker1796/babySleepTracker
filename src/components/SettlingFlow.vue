@@ -52,8 +52,17 @@ function chooseLocation(loc) {
 function changeLocation() {
   settling.setLocation(childId.value, null)
 }
+// Повторный тап не создаст второй сон: startInterval в сторе отдаёт уже
+// создаваемый/открытый интервал. Флаг лишь гасит повторные вызовы целиком.
+let asleepBusy = false
 async function fellAsleep() {
-  await events.startInterval('sleep')
+  if (asleepBusy) return
+  asleepBusy = true
+  try {
+    await events.startInterval('sleep')
+  } finally {
+    asleepBusy = false
+  }
   settling.clear(childId.value)
   settling.clearExtension(childId.value)
   emit('slept')

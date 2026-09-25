@@ -5,6 +5,58 @@ export const DAY_START_H = 7
 export const NIGHT_START_H = 19
 // Сон короче этого порога считается коротким (неполный цикл)
 export const SHORT_NAP_MIN = 40
+// Открытый сон дольше этого порога, скорее всего, — забытая отметка пробуждения
+export const STALE_SLEEP_H = 16
+const STALE_SLEEP_MS = STALE_SLEEP_H * 3600 * 1000
+
+export function isStaleOpenSleep(session, now = Date.now()) {
+  return session.endedAt == null && now - session.startedAt > STALE_SLEEP_MS
+}
+
+// Конец сессии для расчётов: у открытого сна — «сейчас», но не дальше
+// порога забытого сна, чтобы забытая отметка не раздувала статистику.
+export function effectiveEnd(session, now = Date.now()) {
+  if (session.endedAt != null) return session.endedAt
+  return Math.min(now, session.startedAt + STALE_SLEEP_MS)
+}
+
+// Объединяет пересекающиеся/смежные интервалы [start, end) — чтобы
+// два наложенных сна (или два открытых) не считались дважды.
+export function mergeIntervals(intervals) {
+  const sorted = intervals
+    .filter(([a, b]) => b > a)
+    .sort((x, y) => x[0] - y[0])
+  const out = []
+  for (const [a, b] of sorted) {
+    const last = out[out.length - 1]
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b)
+    else out.push([a, b])
+  }
+  return out
+}
+
+function sumIntervalsMin(intervals) {
+  return mergeIntervals(intervals).reduce((sum, [a, b]) => sum + (b - a) / 60000, 0)
+}
+
+// Ищет конфликт сохраняемого сна с другими снами:
+// { kind: 'open', other } — уже есть другой незавершённый сон;
+// { kind: 'overlap', other } — интервалы пересекаются; иначе null.
+export function findSleepConflict(events, candidate, now = Date.now()) {
+  if (candidate.type !== 'sleep') return null
+  const others = sleepSessions(events).filter(s => s.id !== candidate.id)
+  if (candidate.endedAt == null) {
+    const open = others.find(s => s.endedAt == null)
+    if (open) return { kind: 'open', other: open }
+  }
+  const cStart = candidate.startedAt
+  const cEnd = candidate.endedAt ?? Math.max(now, cStart)
+  const other = others.find(s => {
+    const sEnd = s.endedAt ?? Math.max(now, s.startedAt)
+    return s.startedAt < cEnd && cStart < sEnd
+  })
+  return other ? { kind: 'overlap', other } : null
+}
 
 export function sleepSessions(events) {
   return events.filter(e => e.type === 'sleep').sort((a, b) => a.startedAt - b.startedAt)
@@ -18,7 +70,7 @@ export function durationMin(session, now = Date.now()) {
 // Пересечение сессии с интервалом [from, to), в минутах
 function overlapMin(session, from, to, now) {
   const start = Math.max(session.startedAt, from)
-  const end = Math.min(session.endedAt ?? now, to)
+  const end = Math.min(effectiveEnd(session, now), to)
   return Math.max(0, (end - start) / 60000)
 }
 
@@ -88,10 +140,12 @@ export function analyzeDay(events, dateTs, now = Date.now()) {
     s.startedAt >= dayFrom && s.startedAt < dayTo && s.startedAt < dayEnd.valueOf()
   )
 
-  const daySleepMin = naps.reduce((sum, s) => sum + durationMin(s, now), 0)
-  const totalSleepMin = sessions.reduce(
-    (sum, s) => sum + overlapMin(s, dayStart.valueOf(), dayEnd.valueOf(), now), 0
-  )
+  // Пересекающиеся сны объединяем, открытые ограничиваем порогом забытого сна
+  const daySleepMin = sumIntervalsMin(naps.map(s => [s.startedAt, effectiveEnd(s, now)]))
+  const totalSleepMin = sumIntervalsMin(sessions.map(s => [
+    Math.max(s.startedAt, dayStart.valueOf()),
+    Math.min(effectiveEnd(s, now), dayEnd.valueOf())
+  ]))
   const nightSleepMin = Math.max(0, totalSleepMin - daySleepMin)
 
   return {
@@ -107,16 +161,26 @@ export function analyzeDay(events, dateTs, now = Date.now()) {
 // Текущее состояние: спит / бодрствует и с какого момента
 export function currentState(events, now = Date.now()) {
   const sessions = sleepSessions(events)
-  const sleeping = [...sessions].reverse().find(s => s.endedAt == null && s.startedAt <= now) || null
+  let sleeping = [...sessions].reverse().find(s => s.endedAt == null && s.startedAt <= now) || null
+  // Открытый сон дольше порога — скорее всего, забыли отметить пробуждение.
+  // Не считаем, что малыш спит, и не строим на этом прогноз.
+  let staleSleep = null
+  if (sleeping && isStaleOpenSleep(sleeping, now)) {
+    staleSleep = sleeping
+    sleeping = null
+  }
   const completed = sessions.filter(s => s.endedAt != null && s.endedAt <= now)
   const lastCompleted = completed.length ? completed.reduce((a, b) => (a.endedAt > b.endedAt ? a : b)) : null
 
   let lastWakeAt = lastCompleted?.endedAt ?? null
   // Если последнее пробуждение было слишком давно, данные устарели — не строим прогноз
   if (lastWakeAt != null && now - lastWakeAt > 18 * 3600 * 1000) lastWakeAt = null
+  // При забытом сне реальное время пробуждения неизвестно
+  if (staleSleep) lastWakeAt = null
 
   return {
     sleeping,
+    staleSleep,
     lastCompleted,
     lastWakeAt,
     awakeMin: !sleeping && lastWakeAt != null ? (now - lastWakeAt) / 60000 : null,

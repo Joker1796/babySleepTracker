@@ -14,6 +14,7 @@ import DayGreeting from '../components/DayGreeting.vue'
 import EventButtons from '../components/EventButtons.vue'
 import AdviceCard from '../components/AdviceCard.vue'
 import QuickTopics from '../components/QuickTopics.vue'
+import EventEditSheet from '../components/EventEditSheet.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
@@ -35,6 +36,14 @@ const guidance = computed(() => {
 })
 
 const advice = computed(() => guidance.value?.advisor || null)
+
+// Открытый сон дольше 16 ч — вероятно, забыли отметить пробуждение.
+// Прогноз на нём не строится; предлагаем поправить время в редакторе.
+const staleSleep = computed(() => advice.value?.state.staleSleep || null)
+const sheetModel = ref(null)
+function fixStaleSleep() {
+  sheetModel.value = staleSleep.value
+}
 
 // Если малыш заснул (в т.ч. через большую кнопку) — закрываем сессии укладывания и продления
 watch(
@@ -67,6 +76,13 @@ const status = computed(() => {
       icon: '🌙',
       title: 'Ночное пробуждение',
       sub: `проснулся(ась) в ${dayjs(a.state.lastWakeAt).format('HH:mm')} · уложите обратно`
+    }
+  }
+  if (a.state.staleSleep) {
+    return {
+      icon: '⏳',
+      title: 'Сон не завершён',
+      sub: `уснул(а) ${dayjs(a.state.staleSleep.startedAt).format('DD.MM в HH:mm')}`
     }
   }
   if (a.state.awakeMin != null) {
@@ -207,6 +223,12 @@ function toggleRegime() {
       </div>
     </div>
 
+    <!-- Забытая отметка пробуждения -->
+    <div v-if="staleSleep" class="card stale">
+      <p>Похоже, забыли отметить пробуждение — исправить?</p>
+      <button class="btn sm" @click="fixStaleSleep">Исправить</button>
+    </div>
+
     <!-- Достижение дня -->
     <div v-if="guidance?.achievement" class="card trophy">
       <span class="trophy-icon">🏆</span>
@@ -252,6 +274,8 @@ function toggleRegime() {
     <Transition name="fade">
       <div v-if="toast" class="toast">{{ toast }}</div>
     </Transition>
+
+    <EventEditSheet :model="sheetModel" @close="sheetModel = null" />
   </div>
 </template>
 
@@ -259,6 +283,24 @@ function toggleRegime() {
 .status-card { padding-bottom: 12px; }
 
 .extend-btn { margin-bottom: 12px; }
+
+.stale {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--c-warn-soft);
+}
+
+.stale p {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+}
+
+.stale .btn.sm {
+  min-height: 40px;
+  padding: 6px 12px;
+}
 
 .status-icon { font-size: 34px; }
 

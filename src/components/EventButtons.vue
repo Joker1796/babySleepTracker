@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
@@ -21,13 +21,23 @@ function elapsed(ev) {
   return formatDurationMin((now.value - ev.startedAt) / 60000)
 }
 
+// Пока запрос по типу не завершён, повторный тап игнорируем — иначе
+// быстрый второй тап после старта сразу бы закрыл только что начатый интервал.
+const busy = ref({})
+
 async function toggleInterval(type, active, startMsg, endMsg) {
-  if (active.value) {
-    await events.endInterval(active.value)
-    emit('logged', endMsg)
-  } else {
-    await events.startInterval(type)
-    emit('logged', startMsg)
+  if (busy.value[type]) return
+  busy.value[type] = true
+  try {
+    if (active.value) {
+      await events.endInterval(active.value)
+      emit('logged', endMsg)
+    } else {
+      await events.startInterval(type)
+      emit('logged', startMsg)
+    }
+  } finally {
+    busy.value[type] = false
   }
 }
 

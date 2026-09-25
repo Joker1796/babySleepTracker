@@ -2,8 +2,9 @@ import { defineStore } from 'pinia'
 import { db, uid } from '../db'
 import { ageInMonths } from '../logic/age'
 import { seedRegimeFromNorms } from '../data/regime'
+import { CHILD_COLORS, DEFAULT_FEEDING } from '../db/childDefaults'
 
-export const CHILD_COLORS = ['#7c6ff0', '#2f9e6e', '#d9598b', '#2492c9', '#d97706', '#8a5cd6']
+export { CHILD_COLORS }
 
 export const useChildrenStore = defineStore('children', {
   state: () => ({
@@ -27,7 +28,7 @@ export const useChildrenStore = defineStore('children', {
         name,
         birthDate,
         color: color || CHILD_COLORS[this.children.length % CHILD_COLORS.length],
-        feeding: feeding || 'breast',
+        feeding: feeding || DEFAULT_FEEDING,
         aids: aids || [],
         gender: gender || null,
         regime: { mode: 'auto' }
@@ -66,8 +67,11 @@ export const useChildrenStore = defineStore('children', {
       await this.update({ ...child, regime: { ...(child.regime || { mode: 'custom' }), ...patch } })
     },
     async remove(id) {
-      await db.events.where('childId').equals(id).delete()
-      await db.children.delete(id)
+      // Атомарно: не оставляем «осиротевших» событий или ребёнка без событий
+      await db.transaction('rw', db.children, db.events, async () => {
+        await db.events.where('childId').equals(id).delete()
+        await db.children.delete(id)
+      })
       this.children = this.children.filter(c => c.id !== id)
       if (this.activeChildId === id) this.setActive(this.children[0]?.id || null)
     },

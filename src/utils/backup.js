@@ -1,10 +1,11 @@
 import dayjs from 'dayjs'
 import { db } from '../db'
+import { BACKUP_APP, BACKUP_VERSION, parseBackupText, validateBackup } from './backupValidate'
 
 export async function exportBackup() {
   const data = {
-    app: 'babySleepTracker',
-    version: 1,
+    app: BACKUP_APP,
+    version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     children: await db.children.toArray(),
     events: await db.events.toArray()
@@ -15,20 +16,35 @@ export async function exportBackup() {
   a.href = url
   a.download = `baby-tracker-${dayjs().format('YYYY-MM-DD')}.json`
   a.click()
-  URL.revokeObjectURL(url)
+  // Некоторые браузеры начинают скачивание асинхронно — отзываем URL не сразу
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export async function importBackup(file, { replace }) {
-  const text = await file.text()
-  const data = JSON.parse(text)
-  if (data.app !== 'babySleepTracker' || !Array.isArray(data.children) || !Array.isArray(data.events)) {
-    throw new Error('Файл не похож на резервную копию этого приложения')
+// Читает и проверяет «шапку» файла (без записи в базу). Бросает понятную ошибку.
+export async function readBackupFile(file) {
+  return parseBackupText(await file.text())
+}
+
+// Импорт уже прочитанных данных: сначала валидация всех записей, затем
+// одна транзакция — либо всё записалось, либо база осталась как была.
+// replace: true — заменить всё; false — добавить (записи с теми же id перезапишутся).
+export async function importBackup(data, { replace }) {
+  const existingChildIds = replace ? [] : await db.children.toCollection().primaryKeys()
+  const { children, events, skipped, reasons } = validateBackup(data, { existingChildIds })
+  if (replace && children.length === 0) {
+    throw new Error('В файле нет ни одного корректного профиля — текущие данные не тронуты')
   }
-  if (replace) {
-    await db.events.clear()
-    await db.children.clear()
+  await db.transaction('rw', db.children, db.events, async () => {
+    if (replace) {
+      await db.events.clear()
+      await db.children.clear()
+    }
+    await db.children.bulkPut(children)
+    await db.events.bulkPut(events)
+  })
+  return {
+    imported: { children: children.length, events: events.length },
+    skipped,
+    reasons
   }
-  await db.children.bulkPut(data.children)
-  await db.events.bulkPut(data.events)
-  return { children: data.children.length, events: data.events.length }
 }

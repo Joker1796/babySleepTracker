@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import dayjs from 'dayjs'
-import { analyzeDay, currentState, lastNapToday } from '../sleepAnalyzer'
+import {
+  analyzeDay, currentState, lastNapToday, mergeIntervals, findSleepConflict, isStaleOpenSleep
+} from '../sleepAnalyzer'
 
 const ts = s => dayjs(s).valueOf()
 
@@ -110,5 +112,97 @@ describe('lastNapToday', () => {
     ]
     const nap = lastNapToday(events, NOW)
     expect(nap.startedAt).toBe(ts('2026-07-04T13:00'))
+  })
+})
+
+describe('mergeIntervals', () => {
+  it('объединяет пересекающиеся и смежные, отбрасывает пустые', () => {
+    expect(mergeIntervals([[5, 8], [1, 3], [2, 4], [8, 9], [10, 10]])).toEqual([[1, 4], [5, 9]])
+  })
+})
+
+describe('пересечения снов', () => {
+  it('пересекающиеся сны не считаются дважды', () => {
+    const events = [
+      sleep('2026-07-04T09:00', '2026-07-04T10:30'),
+      sleep('2026-07-04T10:00', '2026-07-04T11:00') // перекрывает предыдущий на 30 мин
+    ]
+    const day = analyzeDay(events, NOW, NOW)
+    expect(day.daySleepMin).toBe(120)
+    expect(day.totalSleepMin).toBe(120)
+    expect(day.nightSleepMin).toBe(0)
+  })
+
+  it('два открытых сна не дают больше реального времени', () => {
+    const events = [
+      sleep('2026-07-04T14:00', null),
+      sleep('2026-07-04T15:00', null)
+    ]
+    const day = analyzeDay(events, NOW, NOW)
+    expect(day.totalSleepMin).toBe(120) // 14:00 → 16:00, а не 120 + 60
+    expect(day.daySleepMin).toBe(120)
+  })
+
+  it('сон, вложенный в другой, не добавляет времени', () => {
+    const events = [
+      sleep('2026-07-03T20:00', '2026-07-04T07:00'),
+      sleep('2026-07-04T02:00', '2026-07-04T03:00')
+    ]
+    const day = analyzeDay(events, NOW, NOW)
+    expect(day.totalSleepMin).toBe(420)
+  })
+})
+
+describe('findSleepConflict', () => {
+  const events = [
+    sleep('2026-07-04T09:00', '2026-07-04T10:00'),
+    sleep('2026-07-04T15:00', null)
+  ]
+  const cand = (start, end, id = 'new') => ({ id, type: 'sleep', startedAt: ts(start), endedAt: end ? ts(end) : null })
+
+  it('второй открытый сон запрещён', () => {
+    expect(findSleepConflict(events, cand('2026-07-04T12:00', null), NOW).kind).toBe('open')
+  })
+  it('пересечение с завершённым сном', () => {
+    const c = findSleepConflict(events, cand('2026-07-04T09:30', '2026-07-04T11:00'), NOW)
+    expect(c.kind).toBe('overlap')
+    expect(c.other.startedAt).toBe(ts('2026-07-04T09:00'))
+  })
+  it('пересечение с идущим сейчас сном', () => {
+    expect(findSleepConflict(events, cand('2026-07-04T15:10', '2026-07-04T15:40'), NOW).kind).toBe('overlap')
+  })
+  it('без пересечений — null; сам с собой не конфликтует; не-сон не проверяется', () => {
+    expect(findSleepConflict(events, cand('2026-07-04T11:00', '2026-07-04T12:00'), NOW)).toBeNull()
+    const self = { ...events[0], endedAt: ts('2026-07-04T10:15') }
+    expect(findSleepConflict(events, self, NOW)).toBeNull()
+    expect(findSleepConflict(events, { ...cand('2026-07-04T09:30', null), type: 'walk' }, NOW)).toBeNull()
+  })
+})
+
+describe('забытый открытый сон (> 16 ч)', () => {
+  it('не считается текущим сном и не даёт точку пробуждения', () => {
+    const events = [
+      sleep('2026-07-03T08:00', '2026-07-03T09:00'),
+      sleep('2026-07-03T20:00', null) // 20 ч назад
+    ]
+    const s = currentState(events, NOW)
+    expect(s.sleeping).toBeNull()
+    expect(s.staleSleep?.startedAt).toBe(ts('2026-07-03T20:00'))
+    expect(s.lastWakeAt).toBeNull()
+    expect(s.awakeMin).toBeNull()
+    expect(isStaleOpenSleep(events[1], NOW)).toBe(true)
+  })
+
+  it('сон меньше порога — обычный текущий сон', () => {
+    const s = currentState([sleep('2026-07-04T01:00', null)], NOW) // 15 ч
+    expect(s.sleeping).not.toBeNull()
+    expect(s.staleSleep).toBeNull()
+  })
+
+  it('вклад в анализ дня ограничен порогом', () => {
+    const LATE = ts('2026-07-04T23:00')
+    // Открыт с 20:00 3 июля: реально учитываем только до 12:00 4 июля (16 ч)
+    const day = analyzeDay([sleep('2026-07-03T20:00', null)], LATE, LATE)
+    expect(day.totalSleepMin).toBe(12 * 60)
   })
 })
