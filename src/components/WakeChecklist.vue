@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { useEventsStore } from '../stores/events'
 import { useNow } from '../composables/useNow'
 import { EVENT_TYPES } from '../data/eventTypes'
+import Icon from './Icon.vue'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -28,7 +29,7 @@ const rows = computed(() =>
     const matched = eventsFor(item)
     return {
       ...item,
-      icon: EVENT_TYPES[item.type]?.icon || '•',
+      iconName: EVENT_TYPES[item.type]?.iconName || 'star',
       done: matched.length > 0,
       lastId: matched.length ? matched[matched.length - 1].id : null
     }
@@ -50,9 +51,9 @@ async function toggle(row) {
       :class="{ done: row.done }"
       @click="toggle(row)"
     >
-      <span class="wc-icon">{{ row.icon }}</span>
+      <Icon :name="row.iconName" :size="20" class="wc-icon" />
       <span class="wc-label grow">{{ row.label }}</span>
-      <span class="check" :class="{ on: row.done }">{{ row.done ? '✓' : '' }}</span>
+      <span class="check" :class="{ on: row.done }"><Icon v-if="row.done" name="check" :size="18" /></span>
     </button>
   </div>
 </template>
@@ -74,27 +75,23 @@ async function toggle(row) {
   padding: 8px 10px;
   min-height: 48px;
   border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
   border: 1px solid var(--c-border);
 }
 
 .wc-row.done {
-  background: var(--c-walk-soft);
-  border-color: var(--c-walk);
+  background: var(--c-surface-2);
 }
 
-.wc-icon { font-size: 18px; }
+.wc-icon { color: var(--c-text-soft); }
 
-.wc-label { font-size: 14px; }
+.wc-label { font-size: var(--fs-base); }
 
 .check {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  border: 2px solid var(--c-border);
-  background: var(--c-surface);
-  font-weight: 800;
-  color: #fff;
+  border: 1.5px solid var(--c-border);
+  color: var(--c-on-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,7 +99,7 @@ async function toggle(row) {
 }
 
 .check.on {
-  background: var(--c-walk);
-  border-color: var(--c-walk);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
 }
 </style>

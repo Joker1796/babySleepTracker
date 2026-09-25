@@ -1,4 +1,6 @@
 <script setup>
+import Icon from './Icon.vue'
+
 defineProps({
   greeting: { type: Object, required: true }
 })
@@ -7,9 +9,9 @@ const emit = defineEmits(['dismiss'])
 
 <template>
   <div class="card greeting">
-    <button class="close" @click="emit('dismiss')" aria-label="Скрыть">×</button>
+    <button class="close" @click="emit('dismiss')" aria-label="Скрыть"><Icon name="close" :size="16" /></button>
     <div class="greet-head">
-      <span class="greet-icon">☀️</span>
+      <Icon name="sunrise" class="greet-icon" />
       <p class="greet-line">{{ greeting.line }}</p>
     </div>
 
@@ -28,7 +30,7 @@ const emit = defineEmits(['dismiss'])
     </div>
 
     <div v-if="greeting.progress" class="block progress">
-      <div class="block-title">Как далеко вы продвинулись 💪</div>
+      <div class="block-title">Как далеко вы продвинулись</div>
       <p>{{ greeting.progress }}</p>
     </div>
   </div>
@@ -37,18 +39,19 @@ const emit = defineEmits(['dismiss'])
 <style scoped>
 .greeting {
   position: relative;
-  background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface));
+
 }
 
 .close {
   position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  font-size: 22px;
+  top: 2px;
+  right: 2px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--c-text-soft);
-  line-height: 1;
 }
 
 .greet-head {
@@ -58,17 +61,15 @@ const emit = defineEmits(['dismiss'])
   padding-right: 24px;
 }
 
-.greet-icon { font-size: 26px; }
+.greet-icon { color: var(--c-accent); margin-top: 2px; }
 
-.greet-line { margin: 0; font-size: 15px; font-weight: 600; }
+.greet-line { margin: 0; font-family: var(--font-serif); font-size: var(--fs-md); line-height: 1.4; }
 
 .block { margin-top: 12px; }
 
 .block-title {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--c-text-soft);
   margin-bottom: 6px;
 }
@@ -76,10 +77,10 @@ const emit = defineEmits(['dismiss'])
 .block ul {
   margin: 0;
   padding-left: 18px;
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
 
 .block li { margin-bottom: 5px; }
 
-.progress p { margin: 0; font-size: 14px; line-height: 1.5; }
+.progress p { margin: 0; font-size: var(--fs-base); line-height: 1.5; }
 </style>

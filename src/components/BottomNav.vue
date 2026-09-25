@@ -1,21 +1,22 @@
 <script setup>
 import { computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
+import Icon from './Icon.vue'
 
 const children = useChildrenStore()
 
 const items = computed(() => {
   const base = [
-    { to: '/', icon: '🏠', label: 'Сегодня' },
-    { to: '/history', icon: '📅', label: 'История' },
-    { to: '/advice', icon: '💡', label: 'Советы' },
-    { to: '/stats', icon: '📊', label: 'Стат.' }
+    { to: '/', icon: 'home', label: 'Сегодня' },
+    { to: '/history', icon: 'calendar', label: 'История' },
+    { to: '/advice', icon: 'book', label: 'Советы' },
+    { to: '/stats', icon: 'chart', label: 'Стат.' }
   ]
   // Вкладка «Режим» — только когда включён настраиваемый режим
   if (children.activeChild?.regime?.mode === 'custom') {
-    base.push({ to: '/regime', icon: '🎛️', label: 'Режим' })
+    base.push({ to: '/regime', icon: 'sliders', label: 'Режим' })
   }
-  base.push({ to: '/settings', icon: '⚙️', label: 'Ещё' })
+  base.push({ to: '/settings', icon: 'more', label: 'Ещё' })
   return base
 })
 </script>
@@ -30,7 +31,7 @@ const items = computed(() => {
       active-class="active"
       :exact-active-class="item.to === '/' ? 'active' : undefined"
     >
-      <span class="nav-icon">{{ item.icon }}</span>
+      <Icon :name="item.icon" class="nav-icon" />
       <span class="nav-label">{{ item.label }}</span>
     </router-link>
   </nav>
@@ -45,7 +46,7 @@ const items = computed(() => {
   max-width: 560px;
   margin: 0 auto;
   display: flex;
-  background: var(--c-surface);
+  background: var(--c-bg);
   border-top: 1px solid var(--c-border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 50;
@@ -56,21 +57,21 @@ const items = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: 4px;
   padding: 8px 0 6px;
-  min-height: 56px;
+  min-height: 60px;
   text-decoration: none;
   color: var(--c-text-soft);
   font-size: 11px;
 }
 
 .nav-item.active {
-  color: var(--c-primary);
+  color: var(--c-text);
   font-weight: 600;
 }
 
-.nav-icon {
-  font-size: 20px;
-  line-height: 1;
+.nav-item.active .nav-icon {
+  stroke-width: 1.9;
 }
 </style>

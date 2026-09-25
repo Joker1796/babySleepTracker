@@ -5,6 +5,7 @@ import { useSettlingStore } from '../stores/settling'
 import { useChildrenStore } from '../stores/children'
 import { sleepVerb } from '../logic/gender'
 import WakeChecklist from './WakeChecklist.vue'
+import Icon from './Icon.vue'
 
 const props = defineProps({
   guidance: { type: Object, required: true }
@@ -33,15 +34,15 @@ const tone = computed(() => {
 })
 
 const icon = computed(() => ({
-  'no-data': '🍼',
-  active: '🤸',
-  'wind-down': '🌥️',
-  'time-to-sleep': '⏰',
-  'night-waking': '🌙',
-  settling: '🌙',
-  'nap-extension': '🔁',
-  sleeping: '😴'
-}[phase.value] || '💡'))
+  'no-data': 'baby',
+  active: 'sun',
+  'wind-down': 'sunrise',
+  'time-to-sleep': 'clock',
+  'night-waking': 'moon',
+  settling: 'moon',
+  'nap-extension': 'repeat',
+  sleeping: 'moon'
+}[phase.value] || 'bulb'))
 
 function startSettling() {
   settling.start(childId.value)
@@ -75,7 +76,7 @@ function stopExtension() {
 <template>
   <div class="flow card" :class="tone">
     <div class="flow-head">
-      <span class="flow-icon">{{ icon }}</span>
+      <Icon :name="icon" class="flow-icon" />
       <h2 class="flow-title">{{ guidance.headline }}</h2>
     </div>
 
@@ -119,7 +120,7 @@ function stopExtension() {
 
     <!-- Кнопка «Начать укладывание» (wind-down / time-to-sleep) -->
     <button v-if="guidance.showStartSettling" class="btn block start-btn" @click="startSettling">
-      🌙 Начать укладывание
+      <Icon name="moon" :size="18" /> Начать укладывание
     </button>
 
     <!-- Укладывание: выбор места и советы под обстановку -->
@@ -132,7 +133,7 @@ function stopExtension() {
           class="loc-btn"
           @click="chooseLocation(loc.id)"
         >
-          <span class="loc-icon">{{ loc.icon }}</span>
+          <Icon :name="loc.iconName || 'star'" class="loc-icon" />
           <span>{{ loc.label }}</span>
         </button>
       </div>
@@ -152,15 +153,17 @@ function stopExtension() {
         class="back-btn"
         @click="changeLocation"
         aria-label="Назад к выбору места"
-      >←</button>
+      ><Icon name="chevron-left" :size="20" /></button>
     </template>
   </div>
 </template>
 
 <style scoped>
-.flow { border-left: 4px solid var(--c-primary); }
-.flow.warn { border-left-color: var(--c-warn); }
-.flow.urgent { border-left-color: var(--c-urgent); }
+/* Сценарий — лист дневника; тон задаёт цвет иконки, а не полоска слева */
+.flow { padding: var(--sp-4); }
+.flow-icon { color: var(--c-text-soft); }
+.flow.warn .flow-icon, .flow.urgent .flow-icon { color: var(--c-accent); }
+.flow.urgent { border-color: var(--c-accent); }
 
 .flow-head {
   display: flex;
@@ -169,19 +172,18 @@ function stopExtension() {
   margin-bottom: 6px;
 }
 
-.flow-icon { font-size: 24px; }
-
-.flow-title { margin: 0; font-size: 17px; }
+.flow-title { margin: 0; font-size: var(--fs-lg); }
 
 .flow-line {
-  font-size: 14px;
+  font-size: var(--fs-base);
+  line-height: 1.5;
   margin: 0 0 8px;
 }
 
 .remaining, .steps {
   margin: 4px 0 12px;
   padding-left: 20px;
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
 
 .remaining li, .steps li { margin-bottom: 5px; }
@@ -196,27 +198,27 @@ function stopExtension() {
 
 .idea-tag {
   padding: 7px 14px;
-  min-height: 36px;
+  min-height: 40px;
   border-radius: 999px;
-  background: var(--c-surface-2);
   border: 1px solid var(--c-border);
-  color: var(--c-primary);
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 .idea-tag.active {
-  background: var(--c-primary-soft);
+  background: var(--c-primary);
   border-color: var(--c-primary);
+  color: var(--c-on-primary);
 }
 
 .idea-text {
   margin-top: 8px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1.5;
 }
 
-.remaining { color: var(--c-urgent); font-weight: 500; }
+.remaining { color: var(--c-accent); font-weight: 500; }
 
 .steps li { margin-bottom: 8px; }
 
@@ -239,36 +241,32 @@ function stopExtension() {
   padding: 12px 14px;
   min-height: 52px;
   border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
   border: 1px solid var(--c-border);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--fs-base);
+  font-weight: 500;
 }
 
 .loc-btn:active {
-  background: var(--c-primary-soft);
+  background: var(--c-surface-2);
   border-color: var(--c-primary);
 }
 
-.loc-icon { font-size: 22px; }
+.loc-icon { color: var(--c-text-soft); }
 
 .back-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   margin-top: 10px;
   border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
   border: 1px solid var(--c-border);
   color: var(--c-text-soft);
-  font-size: 20px;
-  line-height: 1;
 }
 
 .back-btn:active {
-  background: var(--c-primary-soft);
+  background: var(--c-surface-2);
   border-color: var(--c-primary);
 }
 </style>

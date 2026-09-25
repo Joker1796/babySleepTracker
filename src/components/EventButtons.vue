@@ -5,6 +5,7 @@ import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
+import Icon from './Icon.vue'
 
 const emit = defineEmits(['logged'])
 const events = useEventsStore()
@@ -49,22 +50,22 @@ function toggleBath() {
 }
 async function logPoop() {
   await events.addPoint('poop')
-  emit('logged', 'Отмечено 💩')
+  emit('logged', 'Отмечено')
 }
 </script>
 
 <template>
   <div class="event-btns">
     <button class="ev-btn tummy" :class="{ on: tummy }" @click="toggleTummy">
-      <span class="ev-icon">👶</span>
+      <Icon name="tummy" />
       <span>{{ tummy ? `Живот ${elapsed(tummy)}` : 'Выкладывание' }}</span>
     </button>
     <button class="ev-btn bath" :class="{ on: bath }" @click="toggleBath">
-      <span class="ev-icon">🛁</span>
+      <Icon name="bath" />
       <span>{{ bath ? `Купаемся ${elapsed(bath)}` : 'Купание' }}</span>
     </button>
     <button class="ev-btn poop" @click="logPoop">
-      <span class="ev-icon">💩</span>
+      <Icon name="diaper" />
       <span>{{ poopWord }}</span>
     </button>
   </div>
@@ -74,32 +75,34 @@ async function logPoop() {
 .event-btns {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: var(--sp-5);
 }
 
 .ev-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 6px;
   padding: 10px 4px;
   min-height: 64px;
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-  box-shadow: var(--shadow);
-  font-size: 12.5px;
-  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--c-border);
+  background: transparent;
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   text-align: center;
 }
 
 .ev-btn:active { opacity: 0.75; }
 
-.ev-icon { font-size: 22px; }
+.ev-btn.on {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+  color: var(--c-text);
+}
 
-.tummy { color: var(--c-primary); }
-.tummy.on { background: var(--c-primary-soft); outline: 1.5px solid var(--c-primary); }
-.bath { color: var(--c-bath); }
-.bath.on { background: var(--c-bath-soft); outline: 1.5px solid var(--c-bath); }
-.poop { color: var(--c-walk); }
+.ev-btn.on .icon { color: var(--c-accent); }
 </style>

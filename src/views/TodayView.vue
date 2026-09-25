@@ -16,6 +16,7 @@ import EventButtons from '../components/EventButtons.vue'
 import AdviceCard from '../components/AdviceCard.vue'
 import QuickTopics from '../components/QuickTopics.vue'
 import EventEditSheet from '../components/EventEditSheet.vue'
+import Icon from '../components/Icon.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
@@ -69,6 +70,22 @@ const wokeAtLabel = computed(() => wokeAt(advice.value, gender.value))
 const progress = computed(() => wakeProgressValue(advice.value))
 // Текст под полосой: сколько осталось до сна
 const timeToSleepLabel = computed(() => timeToSleep(advice.value))
+
+// Крупное время на главном: «1:20 ч» или «45 мин». Только для «спит» и «бодрствует»;
+// в остальных состояниях (ночное пробуждение, забытый сон, нет данных) — заголовок статуса.
+const hero = computed(() => {
+  const s = advice.value?.state
+  if (!s) return null
+  let label = null
+  let min = null
+  if (s.sleeping) { label = 'Спит'; min = s.sleepingMin }
+  else if (!isNightWaking.value && s.awakeMin != null) { label = 'Бодрствует'; min = s.awakeMin }
+  if (min == null) return null
+  const m = Math.max(0, Math.floor(min))
+  return m < 60
+    ? { label, big: String(m), unit: 'мин' }
+    : { label, big: `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, unit: 'ч' }
+})
 
 // Старше года нормы считаются по группе 10–12 мес — показываем пометку
 const normsCapped = computed(() => normsCappedForChild(children.activeChild, now.value))
@@ -141,85 +158,91 @@ function toggleRegime() {
     <ChildSwitcher />
 
     <!-- Поздравление с новым месяцем/годом -->
-    <div v-if="showMilestone" class="card milestone">
-      <button class="ms-close" @click="dismissMilestone" aria-label="Скрыть">×</button>
-      <span class="ms-icon">{{ guidance.milestone.isYear ? '🎂' : '🎉' }}</span>
-      <p>{{ guidance.milestone.text }}</p>
+    <div v-if="showMilestone" class="note milestone">
+      <Icon name="star" class="note-icon accent" />
+      <p class="grow">{{ guidance.milestone.text }}</p>
+      <button class="note-close" @click="dismissMilestone" aria-label="Скрыть"><Icon name="close" :size="16" /></button>
     </div>
 
     <DayGreeting v-if="showGreeting" :greeting="guidance.greeting" @dismiss="dismissGreeting" />
 
-    <div v-if="advice" class="card status-card">
-      <div class="row">
-        <span class="status-icon">{{ status.icon }}</span>
-        <div class="grow">
-          <div class="status-title">{{ status.title }}</div>
-          <div v-if="status.sub" class="muted small">{{ status.sub }}</div>
-        </div>
+    <!-- Главное: состояние и крупное время -->
+    <section v-if="advice" class="hero" aria-live="polite">
+      <div class="hero-top">
+        <span class="hero-label">
+          <Icon :name="status.icon" :size="18" />
+          {{ hero ? hero.label : status.title }}
+        </span>
         <button
           class="regime-toggle"
           :class="{ custom: regimeMode === 'custom' }"
           @click="toggleRegime"
-          :aria-label="`Режим: ${regimeMode === 'custom' ? 'настраиваемый' : 'авто'}`"
+          :aria-label="`Режим расчёта: ${regimeMode === 'custom' ? 'свой' : 'авто'}. Переключить`"
         >
-          {{ regimeMode === 'custom' ? '🎛️ Свой' : '✨ Авто' }}
+          <Icon name="sliders" :size="16" />
+          {{ regimeMode === 'custom' ? 'Свой' : 'Авто' }}
         </button>
       </div>
+
+      <div v-if="hero" class="hero-time num">
+        <span class="hero-big">{{ hero.big }}</span>
+        <span class="hero-unit">{{ hero.unit }}</span>
+      </div>
+      <div v-if="status.sub" class="hero-sub">{{ status.sub }}</div>
 
       <div v-if="progress != null && !advice.state.sleeping && !isNightWaking" class="ww">
         <div class="ww-bar" role="progressbar" aria-label="Окно бодрствования" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(Math.min(progress, 1) * 100)">
           <div class="ww-fill" :style="{ width: `${Math.min(progress, 1) * 100}%` }"></div>
+          <span class="ww-tip" :style="{ left: `${Math.min(progress, 1) * 100}%` }"></span>
         </div>
-        <div class="ww-labels muted small">
+        <div class="ww-labels num">
           <span>{{ wokeAtLabel }}</span>
-          <span>{{ timeToSleepLabel }}</span>
+          <span class="ww-left">{{ timeToSleepLabel }}</span>
         </div>
       </div>
 
-      <div class="forecast">
-        <div class="forecast-item">
-          <span class="f-label">Дневной сон сегодня</span>
-          <span class="f-value">{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
-        </div>
+      <div class="day-line num">
+        <span>Днём сегодня</span>
+        <span>{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
       </div>
       <p v-if="normsCapped" class="muted small norms-capped">Нормы рассчитаны до года — после года ориентируйтесь в первую очередь на самочувствие малыша.</p>
-    </div>
+    </section>
 
     <!-- Забытая отметка пробуждения -->
-    <div v-if="staleSleep" class="card stale">
-      <p>Похоже, забыли отметить пробуждение — исправить?</p>
+    <div v-if="staleSleep" class="note stale">
+      <Icon name="clock" class="note-icon warn" />
+      <p class="grow">Похоже, забыли отметить пробуждение — исправить?</p>
       <button class="btn sm" @click="fixStaleSleep">Исправить</button>
     </div>
 
     <!-- Достижение дня -->
-    <div v-if="guidance?.achievement && !staleSleep" class="card trophy">
-      <span class="trophy-icon">🏆</span>
-      <p>{{ guidance.achievement.text }}</p>
+    <div v-if="guidance?.achievement && !staleSleep" class="note trophy">
+      <Icon name="star" class="note-icon accent" />
+      <p class="grow">{{ guidance.achievement.text }}</p>
     </div>
 
-    <!-- Поддержка для мамы -->
-    <div v-if="showEncouragement" class="card support">
-      <button class="support-close" @click="dismissEncouragement" aria-label="Скрыть">×</button>
-      <span class="support-icon">💛</span>
-      <p>{{ guidance.encouragement.text }}</p>
+    <!-- Поддержка для мамы — тихая строка, без плашки -->
+    <div v-if="showEncouragement" class="support">
+      <p class="grow">{{ guidance.encouragement.text }}</p>
+      <button class="note-close" @click="dismissEncouragement" aria-label="Скрыть"><Icon name="close" :size="16" /></button>
     </div>
 
     <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
-    <SettlingFlow v-if="guidance && !staleSleep && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
+    <SettlingFlow v-if="guidance && !staleSleep && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов')" />
 
     <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул» -->
-    <button v-if="guidance?.showExtendNap" class="btn block extend-btn" @click="extendNap">
-      🔁 Продлить сон
+    <button v-if="guidance?.showExtendNap" class="btn block secondary extend-btn" @click="extendNap">
+      <Icon name="repeat" :size="18" /> Продлить сон
     </button>
 
     <SleepButton v-if="showSleepButton" :stale="!!staleSleep" @fix="fixStaleSleep" />
     <EventButtons @logged="showToast" />
 
     <!-- Чем заняться (активное бодрствование) — под кнопками активностей -->
-    <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
+    <SettlingFlow v-if="guidance && guidance.phase === 'active'" :guidance="guidance" @slept="showToast('Сладких снов')" />
 
-    <template v-if="visibleAdvices.length">
-      <div class="card-title" style="margin-bottom: 6px">Ещё подсказки</div>
+    <section v-if="visibleAdvices.length" class="section">
+      <h2 class="section-title">Подсказки</h2>
       <AdviceCard
         v-for="a in visibleAdvices"
         :key="a.id"
@@ -227,11 +250,13 @@ function toggleRegime() {
         :dismissible="a.profile"
         @dismiss="dismissAdvice(a.id)"
       />
-    </template>
+    </section>
 
     <!-- Быстрые темы-справки -->
-    <div class="card-title" style="margin-top: 4px">Быстрые темы</div>
-    <QuickTopics />
+    <section class="section">
+      <h2 class="section-title">Быстрые ответы</h2>
+      <QuickTopics />
+    </section>
 
     <Transition name="fade">
       <div v-if="toast" class="toast" role="status" aria-live="polite">{{ toast }}</div>
@@ -242,43 +267,64 @@ function toggleRegime() {
 </template>
 
 <style scoped>
-.status-card { padding-bottom: 12px; }
+/* ── Главный блок: состояние и крупное время, без карточки ── */
+.hero {
+  padding: var(--sp-3) var(--sp-1) var(--sp-5);
+}
 
-.extend-btn { margin-bottom: 12px; }
-
-.stale {
+.hero-top {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: var(--c-warn-soft);
+  justify-content: space-between;
+  gap: var(--sp-3);
 }
 
-.stale p {
-  flex: 1;
-  margin: 0;
-  font-size: 14px;
+.hero-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-base);
+  color: var(--c-text-soft);
 }
 
-.stale .btn.sm {
-  min-height: 40px;
-  padding: 6px 12px;
+.hero-time {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: var(--sp-1);
 }
 
-.status-icon { font-size: 34px; }
+.hero-big {
+  font-family: var(--font-serif);
+  font-size: var(--fs-display);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
 
-/* Переключатель режима расчёта — компактный pill справа в карточке статуса */
+.hero-unit {
+  font-size: var(--fs-base);
+  color: var(--c-text-soft);
+}
+
+.hero-sub {
+  margin-top: 6px;
+  color: var(--c-text-soft);
+}
+
+/* Переключатель режима расчёта — тихая текстовая кнопка */
 .regime-toggle {
-  flex-shrink: 0;
-  align-self: flex-start;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 12px;
   min-height: 36px;
   border-radius: 999px;
   border: 1px solid var(--c-border);
-  background: var(--c-surface-2);
   color: var(--c-text-soft);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -291,141 +337,141 @@ function toggleRegime() {
 
 .regime-toggle.custom {
   border-color: var(--c-primary);
-  background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-text);
 }
 
-.status-title {
-  font-size: 19px;
-  font-weight: 700;
-}
-
-.ww { margin-top: 12px; }
-
-.ww-labels {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
+/* Окно бодрствования: тонкая линия с точкой на текущем моменте */
+.ww { margin-top: var(--sp-4); }
 
 .ww-bar {
-  height: 8px;
-  border-radius: 4px;
-  background: var(--c-surface-2);
-  overflow: hidden;
-  margin-bottom: 4px;
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c-border);
+  margin: 6px 0 8px;
 }
 
 .ww-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 2px;
+  background: var(--c-accent);
   transition: width 0.4s;
-  /* Зелёный градиент от светлого к насыщенному; фиксируем масштаб градиента
-     к ширине карточки, чтобы по мере заполнения цвет становился насыщеннее. */
-  background-image: linear-gradient(90deg, var(--c-ww-from), var(--c-ww-to));
-  background-size: 496px 100%;
-  background-repeat: no-repeat;
 }
 
-.norms-capped {
-  margin: 8px 0 0;
+.ww-tip {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  box-shadow: 0 0 0 4px var(--c-bg);
+  transform: translateY(-50%);
+  transition: left 0.4s;
 }
 
-.forecast {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-  border-top: 1px solid var(--c-border);
-  padding-top: 10px;
-}
-
-.forecast-item {
+.ww-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
-}
-
-.f-label { color: var(--c-text-soft); }
-.f-value { font-weight: 600; }
-
-.trophy, .support {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.trophy {
-  background: linear-gradient(135deg, #fff6e0, var(--c-surface));
-  border: 1px solid var(--c-warn);
-}
-
-[data-theme='dark'] .trophy {
-  background: linear-gradient(135deg, #3b2d16, var(--c-surface));
-}
-
-.trophy-icon, .support-icon { font-size: 26px; }
-
-.trophy p, .support p { margin: 0; font-size: 14px; }
-
-.support {
-  position: relative;
-  background: var(--c-medicine-soft);
-}
-
-.support p { padding-right: 24px; }
-
-.support-close {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  width: 30px;
-  height: 30px;
-  font-size: 22px;
-  line-height: 1;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
   color: var(--c-text-soft);
 }
 
-.milestone {
-  position: relative;
+.ww-left { color: var(--c-accent); font-weight: 500; }
+
+.day-line {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  color: var(--c-text-soft);
+}
+
+.day-line span:last-child { color: var(--c-text); font-weight: 500; }
+
+.norms-capped { margin: var(--sp-2) 0 0; }
+
+/* ── Заметки: достижение, поздравление, забытый сон ── */
+.note {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface));
-  border: 1px solid var(--c-primary);
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
 }
 
-.ms-icon { font-size: 30px; }
+.note p { margin: 0; }
+
+.note-icon.accent { color: var(--c-accent); }
+.note-icon.warn { color: var(--c-warn); }
 
 .milestone p {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
 }
 
-.ms-close {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
-  font-size: 22px;
-  line-height: 1;
+.stale { background: var(--c-warn-soft); border-color: transparent; }
+
+.stale .btn.sm {
+  min-height: 40px;
+  padding: 6px 14px;
+}
+
+.note-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px -12px -10px 0;
+  flex-shrink: 0;
   color: var(--c-text-soft);
 }
 
+.support {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 var(--sp-1) var(--sp-4);
+}
+
+.support p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--c-text-soft);
+}
+
+.extend-btn { margin-bottom: 10px; }
+
+/* ── Разделы ниже кнопок ── */
+.section { margin-top: var(--sp-5); }
+
+.section-title {
+  font-size: var(--fs-lg);
+  margin: 0 0 var(--sp-1);
+}
 
 .toast {
   position: fixed;
   bottom: calc(var(--nav-height) + 12px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--c-text);
-  color: var(--c-bg);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
   padding: 10px 18px;
   border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: 500;
   z-index: 90;
   white-space: nowrap;
 }

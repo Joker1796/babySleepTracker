@@ -1,20 +1,21 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useChildrenStore } from '../stores/children'
+import Icon from './Icon.vue'
 
 const children = useChildrenStore()
 
 const NAV_ITEMS = computed(() => {
   const base = [
-    { to: '/', icon: '🏠', label: 'Сегодня' },
-    { to: '/history', icon: '📅', label: 'История' },
-    { to: '/advice', icon: '💡', label: 'Советы' },
-    { to: '/stats', icon: '📊', label: 'Статистика' }
+    { to: '/', icon: 'home', label: 'Сегодня' },
+    { to: '/history', icon: 'calendar', label: 'История' },
+    { to: '/advice', icon: 'book', label: 'Советы' },
+    { to: '/stats', icon: 'chart', label: 'Статистика' }
   ]
   if (children.activeChild?.regime?.mode === 'custom') {
-    base.push({ to: '/regime', icon: '🎛️', label: 'Мой режим' })
+    base.push({ to: '/regime', icon: 'sliders', label: 'Мой режим' })
   }
-  base.push({ to: '/settings', icon: '⚙️', label: 'Настройки' })
+  base.push({ to: '/settings', icon: 'more', label: 'Настройки' })
   return base
 })
 
@@ -78,10 +79,10 @@ onUnmounted(() => {
   <header class="app-header">
     <div class="header-row">
       <button class="burger" @click="toggleMenu" aria-label="Меню" :aria-expanded="menuOpen">
-        <span></span><span></span><span></span>
+        <Icon name="menu" />
       </button>
       <span class="app-title">Режим малыша</span>
-      <button v-if="showInstall" class="install-btn" @click="onInstallClick">⬇️ Установить</button>
+      <button v-if="showInstall" class="install-btn" @click="onInstallClick"><Icon name="download" :size="16" /> Установить</button>
     </div>
   </header>
 
@@ -93,7 +94,7 @@ onUnmounted(() => {
     <nav v-if="menuOpen" class="drawer">
       <div class="drawer-head">
         <span class="drawer-title">Режим малыша</span>
-        <button class="drawer-close" @click="closeMenu" aria-label="Закрыть">×</button>
+        <button class="drawer-close" @click="closeMenu" aria-label="Закрыть"><Icon name="close" :size="20" /></button>
       </div>
       <router-link
         v-for="item in NAV_ITEMS"
@@ -104,7 +105,7 @@ onUnmounted(() => {
         :exact-active-class="item.to === '/' ? 'active' : undefined"
         @click="closeMenu"
       >
-        <span class="drawer-icon">{{ item.icon }}</span>
+        <Icon :name="item.icon" class="drawer-icon" />
         <span>{{ item.label }}</span>
       </router-link>
     </nav>
@@ -116,10 +117,10 @@ onUnmounted(() => {
       <div class="modal">
         <div class="modal-head">
           <h2>Установка на iPhone</h2>
-          <button class="drawer-close" @click="iosHelpOpen = false" aria-label="Закрыть">×</button>
+          <button class="drawer-close" @click="iosHelpOpen = false" aria-label="Закрыть"><Icon name="close" :size="20" /></button>
         </div>
         <ol class="ios-steps">
-          <li>Откройте меню <b>«Поделиться»</b> <span class="share-icon">⬆️</span> внизу Safari.</li>
+          <li>Откройте меню <b>«Поделиться»</b> <Icon name="upload" :size="16" class="share-icon" /> внизу Safari.</li>
           <li>Выберите <b>«На экран „Домой“»</b>.</li>
           <li>Нажмите <b>«Добавить»</b> — значок появится на экране.</li>
         </ol>
@@ -137,6 +138,7 @@ onUnmounted(() => {
   z-index: 60;
   background: var(--c-header);
   color: var(--c-header-text);
+  border-bottom: 1px solid var(--c-border);
   /* Безопасная зона под системными часами/чёлкой на iOS */
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -151,27 +153,20 @@ onUnmounted(() => {
 
 .burger {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: 40px;
-  height: 40px;
-  padding: 0 8px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
-}
-
-.burger span {
-  display: block;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--c-header-text);
+  color: var(--c-header-text);
 }
 
 .app-title {
   flex: 1;
   min-width: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  font-weight: 500;
   color: var(--c-header-text);
   white-space: nowrap;
   overflow: hidden;
@@ -180,20 +175,23 @@ onUnmounted(() => {
 
 .install-btn {
   flex-shrink: 0;
-  padding: 7px 12px;
-  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  min-height: 36px;
   border-radius: 999px;
-  background: #fff;
-  color: var(--c-primary);
-  font-size: 13px;
-  font-weight: 700;
+  border: 1px solid var(--c-border);
+  color: var(--c-header-text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .drawer-overlay, .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--c-overlay);
   z-index: 70;
 }
 
@@ -205,7 +203,7 @@ onUnmounted(() => {
   width: 78%;
   max-width: 300px;
   z-index: 80;
-  background: var(--c-surface);
+  background: var(--c-bg);
   border-right: 1px solid var(--c-border);
   padding: 8px;
   display: flex;
@@ -222,16 +220,18 @@ onUnmounted(() => {
 }
 
 .drawer-title {
-  font-size: 16px;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: 500;
   color: var(--c-text);
 }
 
 .drawer-close {
-  width: 34px;
-  height: 34px;
-  font-size: 24px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   color: var(--c-text-soft);
 }
 
@@ -244,17 +244,17 @@ onUnmounted(() => {
   border-radius: var(--radius-sm);
   text-decoration: none;
   color: var(--c-text);
-  font-size: 15px;
+  font-size: var(--fs-base);
   font-weight: 500;
 }
 
 .drawer-item.active {
-  background: var(--c-primary-soft);
-  color: var(--c-primary);
-  font-weight: 700;
+  background: var(--c-surface-2);
+  font-weight: 600;
 }
 
-.drawer-icon { font-size: 20px; }
+.drawer-icon { color: var(--c-text-soft); }
+.drawer-item.active .drawer-icon { color: var(--c-text); }
 
 /* Модалка установки на iOS */
 .modal-overlay {
@@ -291,7 +291,8 @@ onUnmounted(() => {
 
 .share-icon {
   display: inline-block;
-  padding: 0 4px;
+  vertical-align: -3px;
+  margin: 0 2px;
 }
 
 .slide-enter-active, .slide-leave-active { transition: transform 0.22s ease; }

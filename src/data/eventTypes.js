@@ -1,8 +1,10 @@
 // Реестр типов событий. kind: 'interval' — с началом и концом, 'point' — момент времени.
+// iconName — линейная иконка (components/Icon.vue); icon (эмодзи) — только для <option>.
 // Чтобы добавить новый тип (например, кормление) — достаточно дописать запись здесь.
 export const EVENT_TYPES = {
   sleep: {
     id: 'sleep',
+    iconName: 'moon',
     label: 'Сон',
     kind: 'interval',
     icon: '😴',
@@ -13,6 +15,7 @@ export const EVENT_TYPES = {
   },
   walk: {
     id: 'walk',
+    iconName: 'stroller',
     label: 'Прогулка',
     kind: 'interval',
     icon: '🚶',
@@ -23,6 +26,7 @@ export const EVENT_TYPES = {
   },
   bath: {
     id: 'bath',
+    iconName: 'bath',
     label: 'Купание',
     kind: 'interval',
     icon: '🛁',
@@ -33,16 +37,18 @@ export const EVENT_TYPES = {
   },
   tummy: {
     id: 'tummy',
+    iconName: 'tummy',
     label: 'Выкладывание на живот',
     kind: 'interval',
     icon: '👶',
-    color: 'var(--c-primary)',
-    softColor: 'var(--c-primary-soft)',
+    color: 'var(--c-accent)',
+    softColor: 'var(--c-accent-soft)',
     startLabel: 'Начали выкладывание',
     endLabel: 'Закончили выкладывание'
   },
   poop: {
     id: 'poop',
+    iconName: 'diaper',
     // Нейтральная метка (списки типов, редактор событий). Кнопка, лента и История
     // показывают глагол по полу ребёнка — см. poopVerb() в logic/gender.js.
     label: 'Стул',
@@ -53,6 +59,7 @@ export const EVENT_TYPES = {
   },
   medicine: {
     id: 'medicine',
+    iconName: 'pill',
     label: 'Лекарство',
     kind: 'point',
     icon: '💊',
@@ -63,6 +70,7 @@ export const EVENT_TYPES = {
   },
   wash: {
     id: 'wash',
+    iconName: 'drop',
     label: 'Умывание',
     kind: 'point',
     icon: '🧼',
@@ -71,6 +79,7 @@ export const EVENT_TYPES = {
   },
   vitaminD: {
     id: 'vitaminD',
+    iconName: 'sun',
     label: 'Витамин D',
     kind: 'point',
     icon: '☀️',

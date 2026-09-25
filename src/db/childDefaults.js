@@ -2,7 +2,7 @@
 // (feeding, aids, gender, regime, dueDate), поэтому старые записи могут их не содержать.
 // Используется и в миграции Dexie, и при импорте резервной копии.
 
-export const CHILD_COLORS = ['#7c6ff0', '#2f9e6e', '#d9598b', '#2492c9', '#d97706', '#8a5cd6']
+export const CHILD_COLORS = ['#b4532a', '#4e7a5a', '#3e4c8f', '#9c4468', '#2f6f86', '#9a5b12']
 
 export const DEFAULT_FEEDING = 'breast'
 

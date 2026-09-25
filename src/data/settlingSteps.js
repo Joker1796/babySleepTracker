@@ -3,9 +3,9 @@
 
 // Где укладывают малыша — от места зависят советы.
 export const SETTLING_LOCATIONS = [
-  { id: 'home', label: 'Дома', icon: '🏠' },
-  { id: 'walk', label: 'На прогулке', icon: '🚶' },
-  { id: 'guests', label: 'В гостях / кафе', icon: '🧳' }
+  { id: 'home', label: 'Дома', icon: '🏠', iconName: 'home' },
+  { id: 'walk', label: 'На прогулке', icon: '🚶', iconName: 'stroller' },
+  { id: 'guests', label: 'В гостях / кафе', icon: '🧳', iconName: 'star' }
 ]
 
 // Советы по укладыванию под конкретное место. Персонализируются по профилю.

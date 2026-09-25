@@ -34,7 +34,7 @@ function toggle(id) {
         :class="{ active: openId === t.id }"
         :aria-expanded="openId === t.id"
         @click="toggle(t.id)"
-      >{{ t.tag }}</button>
+      >{{ t.tag.replace(/^#/, '') }}</button>
     </div>
     <Transition name="fade">
       <div v-if="openTopic" class="topic-text card">
@@ -55,24 +55,24 @@ function toggle(id) {
 
 .tag {
   padding: 7px 14px;
-  min-height: 36px;
+  min-height: 40px;
   border-radius: 999px;
-  background: var(--c-surface-2);
   border: 1px solid var(--c-border);
-  color: var(--c-primary);
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 .tag.active {
-  background: var(--c-primary-soft);
+  background: var(--c-primary);
   border-color: var(--c-primary);
+  color: var(--c-on-primary);
 }
 
 .topic-text {
   margin-top: 8px;
   margin-bottom: 0;
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1.5;
 }
 </style>

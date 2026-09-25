@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { sleepVerb, wakeVerb } from '../logic/gender'
+import Icon from './Icon.vue'
 
 // stale: открытый сон идёт больше 16 ч — пробуждение, видимо, забыли отметить.
 // Тогда кнопка не закрывает сон текущим временем, а просит указать время в редакторе.
@@ -38,7 +39,7 @@ async function toggle() {
 
 <template>
   <button class="sleep-btn" :class="{ sleeping }" :disabled="busy" @click="toggle">
-    <span class="icon">{{ sleeping ? '☀️' : '😴' }}</span>
+    <Icon :name="stale ? 'clock' : sleeping ? 'sun' : 'moon'" :size="24" />
     <span class="text">
       <span class="main">{{ stale ? 'Указать время пробуждения' : sleeping ? wakeWord : sleepWord }}</span>
     </span>
@@ -50,26 +51,24 @@ async function toggle() {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 12px;
   padding: 16px 18px;
-  min-height: 72px;
+  min-height: 64px;
   border-radius: var(--radius);
-  background: var(--c-sleep);
-  color: #fff;
-  box-shadow: var(--shadow);
-  margin-bottom: 12px;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  margin-bottom: 10px;
   transition: transform 0.1s;
 }
 
 .sleep-btn:active { transform: scale(0.98); }
 
 .sleep-btn.sleeping {
-  background: var(--c-surface);
+  background: transparent;
   color: var(--c-text);
-  border: 2px solid var(--c-sleep);
+  border: 1.5px solid var(--c-primary);
 }
-
-.icon { font-size: 30px; }
 
 .text {
   display: flex;
@@ -79,7 +78,7 @@ async function toggle() {
 }
 
 .main {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: 600;
 }
 </style>

@@ -45,8 +45,10 @@ const now = useNow()
   font-size: 12px;
 }
 
-.child-chip.active .age {
-  color: inherit;
-  opacity: 0.75;
+/* Активный ребёнок — обводка чернилами, без заливки: заливку оставляем кнопкам */
+.chip.child-chip.active {
+  background: transparent;
+  border-color: var(--c-text);
+  color: var(--c-text);
 }
 </style>

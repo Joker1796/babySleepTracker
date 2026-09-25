@@ -9,7 +9,7 @@ const advice = (state, extra = {}) => ({ state: { ...base, ...state }, ...extra 
 describe('buildStatus', () => {
   it('спит — глагол по полу', () => {
     const a = advice({ sleeping: { startedAt: ts('2026-07-04T13:00') }, sleepingMin: 45 })
-    expect(buildStatus(a, { gender: 'female' })).toEqual({ icon: '😴', title: 'Спит 45 мин', sub: 'уснула в 13:00' })
+    expect(buildStatus(a, { gender: 'female' })).toEqual({ icon: 'moon', title: 'Спит 45 мин', sub: 'уснула в 13:00' })
     expect(buildStatus(a, { gender: 'male' }).sub).toBe('уснул в 13:00')
     expect(buildStatus(a).sub).toBe('уснул(а) в 13:00')
   })
