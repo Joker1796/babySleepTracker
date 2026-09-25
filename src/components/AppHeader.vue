@@ -77,7 +77,7 @@ onUnmounted(() => {
 <template>
   <header class="app-header">
     <div class="header-row">
-      <button class="burger" @click="toggleMenu" aria-label="Меню">
+      <button class="burger" @click="toggleMenu" aria-label="Меню" :aria-expanded="menuOpen">
         <span></span><span></span><span></span>
       </button>
       <span class="app-title">Режим малыша</span>

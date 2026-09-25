@@ -116,15 +116,15 @@ async function remove() {
           <h2>{{ form.isNew ? 'Новое событие' : 'Изменить событие' }}</h2>
 
           <div v-if="form.isNew" class="field">
-            <label>Тип события</label>
-            <select v-model="form.type">
+            <label for="ev-type">Тип события</label>
+            <select id="ev-type" v-model="form.type">
               <option v-for="t in EVENT_TYPE_LIST" :key="t.id" :value="t.id">{{ t.icon }} {{ t.label }}</option>
             </select>
           </div>
 
           <div class="field">
-            <label>{{ typeDef.kind === 'interval' ? 'Начало' : 'Время' }}</label>
-            <input v-model="form.startedAt" type="datetime-local" :max="maxLocal" />
+            <label for="ev-start">{{ typeDef.kind === 'interval' ? 'Начало' : 'Время' }}</label>
+            <input id="ev-start" v-model="form.startedAt" type="datetime-local" :max="maxLocal" />
           </div>
 
           <template v-if="typeDef.kind === 'interval'">
@@ -133,15 +133,15 @@ async function remove() {
               <label for="hasEnd" class="check-label">Уже закончилось</label>
             </div>
             <div v-if="form.hasEnd" class="field">
-              <label>Окончание</label>
-              <input v-model="form.endedAt" type="datetime-local" :max="maxLocal" />
+              <label for="ev-end">Окончание</label>
+              <input id="ev-end" v-model="form.endedAt" type="datetime-local" :max="maxLocal" />
               <p v-if="form.stale" class="muted small hint">Сон идёт больше 16 часов — укажите, когда малыш проснулся.</p>
             </div>
           </template>
 
           <div class="field">
-            <label>Заметка</label>
-            <input v-model="form.note" type="text" :placeholder="typeDef.notePlaceholder || 'Необязательно'" />
+            <label for="ev-note">Заметка</label>
+            <input id="ev-note" v-model="form.note" type="text" :placeholder="typeDef.notePlaceholder || 'Необязательно'" />
           </div>
 
           <p v-if="error" class="error small">{{ error }}</p>

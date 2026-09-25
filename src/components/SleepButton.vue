@@ -4,6 +4,11 @@ import { useEventsStore } from '../stores/events'
 import { useChildrenStore } from '../stores/children'
 import { sleepVerb, wakeVerb } from '../logic/gender'
 
+// stale: открытый сон идёт больше 16 ч — пробуждение, видимо, забыли отметить.
+// Тогда кнопка не закрывает сон текущим временем, а просит указать время в редакторе.
+const props = defineProps({ stale: { type: Boolean, default: false } })
+const emit = defineEmits(['fix'])
+
 const events = useEventsStore()
 const children = useChildrenStore()
 
@@ -17,6 +22,7 @@ const sleepWord = computed(() => sleepVerb(children.activeChild?.gender))
 async function toggle() {
   // Защита от двойного тапа: блокируем на время запроса
   if (busy.value) return
+  if (props.stale) { emit('fix'); return }
   busy.value = true
   try {
     if (sleeping.value) {
@@ -34,7 +40,7 @@ async function toggle() {
   <button class="sleep-btn" :class="{ sleeping }" :disabled="busy" @click="toggle">
     <span class="icon">{{ sleeping ? '☀️' : '😴' }}</span>
     <span class="text">
-      <span class="main">{{ sleeping ? wakeWord : sleepWord }}</span>
+      <span class="main">{{ stale ? 'Указать время пробуждения' : sleeping ? wakeWord : sleepWord }}</span>
     </span>
   </button>
 </template>

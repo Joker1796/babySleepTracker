@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
@@ -23,6 +23,7 @@ const now = useNow()
 
 const toast = ref('')
 let toastTimer = null
+onBeforeUnmount(() => clearTimeout(toastTimer))
 
 const guidance = computed(() => {
   if (!children.activeChild) return null
@@ -126,7 +127,10 @@ const showGreeting = computed(() =>
 
 // Общие возрастные подсказки (регрессы, переходы) не дублируем на главном —
 // они доступны в разделе «Советы». Оставляем только ситуативные.
-const secondaryAdvices = computed(() => advice.value?.advices.filter(a => !a.general).slice(0, 4) || [])
+// Пока висит забытый сон, данные дня недостоверны — подсказки по ним не показываем
+const secondaryAdvices = computed(() =>
+  staleSleep.value ? [] : advice.value?.advices.filter(a => !a.general).slice(0, 4) || []
+)
 
 // Крестик закрывает конкретную подсказку из профиля (соска, укачивание, пеленание и т.п.)
 // до конца дня. Ситуативные подсказки (перегул, пора спать) остаются всегда.
@@ -160,7 +164,7 @@ function dismissMilestone() {
 
 // Поддержка для мамы — можно закрыть крестиком на день
 const showEncouragement = computed(() =>
-  guidance.value?.encouragement && !settling.isEncouragementDismissed(children.activeChild?.id)
+  !staleSleep.value && guidance.value?.encouragement && !settling.isEncouragementDismissed(children.activeChild?.id)
 )
 function dismissEncouragement() {
   settling.dismissEncouragement(children.activeChild?.id)
@@ -206,7 +210,7 @@ function toggleRegime() {
       </div>
 
       <div v-if="progress != null && !advice.state.sleeping && !isNightWaking" class="ww">
-        <div class="ww-bar">
+        <div class="ww-bar" role="progressbar" aria-label="Окно бодрствования" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(Math.min(progress, 1) * 100)">
           <div class="ww-fill" :style="{ width: `${Math.min(progress, 1) * 100}%` }"></div>
         </div>
         <div class="ww-labels muted small">
@@ -230,7 +234,7 @@ function toggleRegime() {
     </div>
 
     <!-- Достижение дня -->
-    <div v-if="guidance?.achievement" class="card trophy">
+    <div v-if="guidance?.achievement && !staleSleep" class="card trophy">
       <span class="trophy-icon">🏆</span>
       <p>{{ guidance.achievement.text }}</p>
     </div>
@@ -243,14 +247,14 @@ function toggleRegime() {
     </div>
 
     <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
-    <SettlingFlow v-if="guidance && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
+    <SettlingFlow v-if="guidance && !staleSleep && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
     <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул(а)» -->
     <button v-if="guidance?.showExtendNap" class="btn block extend-btn" @click="extendNap">
       🔁 Продлить сон
     </button>
 
-    <SleepButton v-if="showSleepButton" />
+    <SleepButton v-if="showSleepButton" :stale="!!staleSleep" @fix="fixStaleSleep" />
     <EventButtons @logged="showToast" />
 
     <!-- Чем заняться (активное бодрствование) — под кнопками активностей -->
@@ -272,7 +276,7 @@ function toggleRegime() {
     <QuickTopics />
 
     <Transition name="fade">
-      <div v-if="toast" class="toast">{{ toast }}</div>
+      <div v-if="toast" class="toast" role="status" aria-live="polite">{{ toast }}</div>
     </Transition>
 
     <EventEditSheet :model="sheetModel" @close="sheetModel = null" />
@@ -308,8 +312,9 @@ function toggleRegime() {
 .regime-toggle {
   flex-shrink: 0;
   align-self: flex-start;
-  padding: 6px 10px;
-  min-height: 30px;
+  position: relative;
+  padding: 6px 12px;
+  min-height: 36px;
   border-radius: 999px;
   border: 1px solid var(--c-border);
   background: var(--c-surface-2);
@@ -317,6 +322,13 @@ function toggleRegime() {
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Зона касания 44px при компактном виде кнопки */
+.regime-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
 }
 
 .regime-toggle.custom {

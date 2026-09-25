@@ -29,6 +29,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm test
+
       # base = имя репозитория, т.к. сайт живёт в подпапке /babySleepTracker/
       - run: npm run build -- --base=/babySleepTracker/
 

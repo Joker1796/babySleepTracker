@@ -93,8 +93,8 @@ function cancelImport() {
               {{ child.aids.map(id => getAid(id)?.icon).filter(Boolean).join(' ') }}
             </div>
           </div>
-          <button class="btn secondary sm" @click="editingChild = child">✏️</button>
-          <button class="btn danger sm" @click="removeChild(child)">🗑</button>
+          <button class="btn secondary sm" @click="editingChild = child" :aria-label="`Изменить профиль: ${child.name}`">✏️</button>
+          <button class="btn danger sm" @click="removeChild(child)" :aria-label="`Удалить профиль: ${child.name}`">🗑</button>
         </div>
         <div v-else class="edit-box">
           <ChildForm :child="child" @saved="onSaved" @cancel="editingChild = null" />

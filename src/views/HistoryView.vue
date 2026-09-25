@@ -51,12 +51,12 @@ function addEvent() {
 <template>
   <div class="page">
     <div class="day-nav">
-      <button class="day-arrow" @click="dayOffset--">‹</button>
+      <button class="day-arrow" @click="dayOffset--" aria-label="Предыдущий день">‹</button>
       <div class="day-label">
         <h1>{{ dayLabel }}</h1>
         <span class="muted small">{{ dayjs(dayTs).format('D MMMM YYYY') }}</span>
       </div>
-      <button class="day-arrow" :disabled="dayOffset >= 0" @click="dayOffset++">›</button>
+      <button class="day-arrow" :disabled="dayOffset >= 0" @click="dayOffset++" aria-label="Следующий день">›</button>
     </div>
 
     <div class="card summary">
