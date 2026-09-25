@@ -174,7 +174,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   } else if (phase === 'night-waking') {
     // Подсказка зависит от времени и от того, сколько прошло после отбоя
     const hoursSinceBedtime = bedtimeStart != null ? (now - bedtimeStart) / 3600000 : null
-    const algo = nightAlgorithm({ hour, hoursSinceBedtime })
+    const algo = nightAlgorithm({ hour, hoursSinceBedtime, ageM })
     g.headline = algo.title
     g.lines.push(...algo.lines)
   } else if (phase === 'active') {
