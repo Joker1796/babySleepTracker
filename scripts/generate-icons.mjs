@@ -1,4 +1,5 @@
-// Генерирует PNG-иконки PWA (луна со звёздами) без внешних зависимостей:
+// Генерирует PNG-иконки PWA («Ночной дневник»: чернильный фон, лунный серп
+// и абрикосовая звезда) без внешних зависимостей:
 // рисует пиксели математикой и кодирует PNG вручную через node:zlib.
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
@@ -51,37 +52,27 @@ function encodePng(size, rgba) {
 }
 
 // Дизайн иконки в относительных координатах (0..1)
-const BG_TOP = [109, 106, 240]
-const BG_BOTTOM = [68, 56, 184]
-const MOON = [255, 244, 214]
-const STAR = [255, 255, 255]
-const moon = { cx: 0.57, cy: 0.52, r: 0.28 }
-const cut = { cx: 0.47, cy: 0.43, r: 0.245 }
-const stars = [
-  [0.3, 0.27, 0.028],
-  [0.23, 0.58, 0.02],
-  [0.71, 0.8, 0.022],
-  [0.79, 0.28, 0.016]
-]
+// Всё значимое — внутри безопасной зоны maskable-иконки (центральные 80%).
+const BG = [29, 35, 64] // #1d2340 — чернила
+const MOON = [255, 244, 214] // #fff4d6 — луна
+const STAR = [224, 138, 94] // #e08a5e — абрикос
+const moon = { cx: 0.47, cy: 0.54, r: 0.25 }
+const cut = { cx: 0.56, cy: 0.46, r: 0.215 }
+// Четырёхлучевая звезда: |dx|^p + |dy|^p <= r^p при p < 1 даёт вогнутые лучи
+const star = { cx: 0.68, cy: 0.3, r: 0.1, p: 0.55 }
 
 function sampleColor(nx, ny) {
-  const t = ny
-  let c = [
-    BG_TOP[0] + (BG_BOTTOM[0] - BG_TOP[0]) * t,
-    BG_TOP[1] + (BG_BOTTOM[1] - BG_TOP[1]) * t,
-    BG_TOP[2] + (BG_BOTTOM[2] - BG_TOP[2]) * t
-  ]
+  let c = BG
   const dMoon = Math.hypot(nx - moon.cx, ny - moon.cy)
   const dCut = Math.hypot(nx - cut.cx, ny - cut.cy)
   if (dMoon <= moon.r && dCut > cut.r) c = MOON
-  for (const [sx, sy, sr] of stars) {
-    if (Math.hypot(nx - sx, ny - sy) <= sr) c = STAR
-  }
+  const sx = Math.abs(nx - star.cx), sy = Math.abs(ny - star.cy)
+  if (sx ** star.p + sy ** star.p <= star.r ** star.p) c = STAR
   return c
 }
 
 function render(size) {
-  const ss = 2 // суперсэмплинг для сглаживания краёв
+  const ss = 4 // суперсэмплинг для сглаживания краёв
   const rgba = Buffer.alloc(size * size * 4)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {

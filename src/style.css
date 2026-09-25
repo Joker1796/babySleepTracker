@@ -148,6 +148,44 @@
   --c-overlay: rgba(0, 0, 0, 0.6);
 }
 
+/* Ночной режим (включается сам ночью): почти чёрный фон и приглушённый
+   янтарный текст — не слепит при кормлении. Перекрывает обе темы. */
+[data-night='1'] {
+  --c-bg: #0f0e14;
+  --c-surface: #16141d;
+  --c-surface-2: #1e1b26;
+  --c-text: #d6ae6e;
+  --c-text-soft: #9a8360;
+  --c-border: #2a2433;
+  --c-primary: #d6ae6e;
+  --c-primary-soft: #2a2218;
+  --c-on-primary: #0f0e14;
+  --c-accent: #d6ae6e;
+  --c-accent-soft: #2a2218;
+  --c-moon: #d6ae6e;
+  --c-header: #0f0e14;
+  --c-header-text: #d6ae6e;
+  --c-sleep: #b89a6a;
+  --c-sleep-soft: #221d1a;
+  --c-walk: #b89a6a;
+  --c-walk-soft: #221d1a;
+  --c-bath: #b89a6a;
+  --c-bath-soft: #221d1a;
+  --c-medicine: #b89a6a;
+  --c-medicine-soft: #221d1a;
+  --c-warn: #d6ae6e;
+  --c-warn-soft: #2a2218;
+  --c-urgent: #e08a70;
+  --c-urgent-soft: #2e1a16;
+  --c-info: #b89a6a;
+  --c-info-soft: #221d1a;
+  --c-night-bar: #7a6645;
+  --c-day-bar: #4a3f2e;
+  --c-ww-from: #d6ae6e;
+  --c-ww-to: #d6ae6e;
+  --c-overlay: rgba(0, 0, 0, 0.7);
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;

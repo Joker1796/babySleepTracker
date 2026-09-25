@@ -1,11 +1,13 @@
 <script setup>
-import { onMounted, watch, defineAsyncComponent } from 'vue'
+import { computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { useChildrenStore } from './stores/children'
 import { useEventsStore } from './stores/events'
 import { useSettingsStore } from './stores/settings'
 import AppHeader from './components/AppHeader.vue'
 import BottomNav from './components/BottomNav.vue'
 import OnboardingView from './views/OnboardingView.vue'
+import { useNow } from './composables/useNow'
+import { isNightTime } from './logic/nightMode'
 
 const children = useChildrenStore()
 const events = useEventsStore()
@@ -21,6 +23,13 @@ onMounted(async () => {
   settings.init()
   await children.load()
 })
+
+// Ночной режим экрана — пересчитывается раз в 30 с и при засыпании/пробуждении
+const now = useNow()
+const night = computed(() =>
+  settings.nightMode === 'auto' && isNightTime(now.value, events.currentSleep)
+)
+watch(night, on => settings.applyNight(on), { immediate: true })
 
 watch(
   () => children.activeChild?.id,

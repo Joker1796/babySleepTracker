@@ -1,15 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#6d6af0"/>
-      <stop offset="1" stop-color="#4438b8"/>
-    </linearGradient>
+    <mask id="crescent">
+      <circle cx="47" cy="54" r="25" fill="#fff"/>
+      <circle cx="56" cy="46" r="21.5" fill="#000"/>
+    </mask>
   </defs>
-  <rect width="100" height="100" rx="22" fill="url(#g)"/>
-  <circle cx="57" cy="52" r="28" fill="#fff4d6"/>
-  <circle cx="47" cy="43" r="24.5" fill="url(#g)"/>
-  <circle cx="30" cy="27" r="2.8" fill="#fff"/>
-  <circle cx="23" cy="58" r="2" fill="#fff"/>
-  <circle cx="71" cy="80" r="2.2" fill="#fff"/>
-  <circle cx="79" cy="28" r="1.6" fill="#fff"/>
+  <rect width="100" height="100" rx="22" fill="#1d2340"/>
+  <rect width="100" height="100" fill="#fff4d6" mask="url(#crescent)"/>
+  <path d="M68 20 70.2 27.8 78 30 70.2 32.2 68 40 65.8 32.2 58 30 65.8 27.8Z" fill="#e08a5e"/>
 </svg>
