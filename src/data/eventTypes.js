@@ -8,8 +8,8 @@ export const EVENT_TYPES = {
     icon: '😴',
     color: 'var(--c-sleep)',
     softColor: 'var(--c-sleep-soft)',
-    startLabel: 'Уснул(а)',
-    endLabel: 'Проснулся(ась)'
+    startLabel: 'Засыпание',
+    endLabel: 'Пробуждение'
   },
   walk: {
     id: 'walk',
@@ -43,7 +43,9 @@ export const EVENT_TYPES = {
   },
   poop: {
     id: 'poop',
-    label: 'Покакал',
+    // Нейтральная метка (списки типов, редактор событий). Кнопка, лента и История
+    // показывают глагол по полу ребёнка — см. poopVerb() в logic/gender.js.
+    label: 'Стул',
     kind: 'point',
     icon: '💩',
     color: 'var(--c-walk)',
