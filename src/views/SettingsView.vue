@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettingsStore } from '../stores/settings'
@@ -8,6 +9,7 @@ import { getFeeding, getAid } from '../data/childOptions'
 import { exportBackup, readBackupFile, importBackup } from '../utils/backup'
 import { plural } from '../logic/age'
 import ChildForm from '../components/ChildForm.vue'
+import Icon from '../components/Icon.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
@@ -84,17 +86,21 @@ function cancelImport() {
         <div v-if="editingChild !== child" class="row child-row">
           <span class="dot" :style="{ background: child.color }"></span>
           <div class="grow">
-            <b>{{ child.name }}</b>
+            <div class="child-name">{{ child.name }}</div>
             <div class="muted small">
-              {{ formatChildAge(child) }} · {{ child.birthDate }}
-              <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).icon }} {{ getFeeding(child.feeding).short }}</template>
+              {{ formatChildAge(child) }} · <span class="num">{{ dayjs(child.birthDate).format('D.MM.YYYY') }}</span>
+              <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).short }}</template>
             </div>
             <div v-if="child.aids?.length" class="muted small aids">
-              {{ child.aids.map(id => getAid(id)?.icon).filter(Boolean).join(' ') }}
+              {{ child.aids.map(id => getAid(id)?.label).filter(Boolean).join(', ') }}
             </div>
           </div>
-          <button class="btn secondary sm" @click="editingChild = child" :aria-label="`Изменить профиль: ${child.name}`">✏️</button>
-          <button class="btn danger sm" @click="removeChild(child)" :aria-label="`Удалить профиль: ${child.name}`">🗑</button>
+          <button class="icon-btn" @click="editingChild = child" :aria-label="`Изменить профиль: ${child.name}`">
+            <Icon name="edit" :size="20" />
+          </button>
+          <button class="icon-btn danger" @click="removeChild(child)" :aria-label="`Удалить профиль: ${child.name}`">
+            <Icon name="trash" :size="20" />
+          </button>
         </div>
         <div v-else class="edit-box">
           <ChildForm :child="child" @saved="onSaved" @cancel="editingChild = null" />
@@ -104,16 +110,16 @@ function cancelImport() {
       <div v-if="editingChild === 'new'" class="edit-box">
         <h3>Новый ребёнок</h3>
         <ChildForm @saved="onSaved" />
-        <button class="btn secondary block" style="margin-top: 8px" @click="editingChild = null">Отмена</button>
+        <button class="btn secondary block cancel-new" @click="editingChild = null">Отмена</button>
       </div>
-      <button v-else class="btn secondary block" style="margin-top: 10px" @click="editingChild = 'new'">
-        + Добавить ребёнка
+      <button v-else class="btn secondary block add-child" @click="editingChild = 'new'">
+        <Icon name="plus" :size="18" /> Добавить ребёнка
       </button>
     </div>
 
     <div class="card">
       <div class="card-title">Тема</div>
-      <div class="row">
+      <div class="row theme-row">
         <button
           v-for="t in themes"
           :key="t.id"
@@ -122,20 +128,32 @@ function cancelImport() {
           @click="settings.setTheme(t.id)"
         >{{ t.label }}</button>
       </div>
+      <label class="night-row">
+        <input
+          type="checkbox"
+          class="night-check"
+          :checked="settings.nightMode === 'auto'"
+          @change="settings.setNightMode($event.target.checked ? 'auto' : 'off')"
+        />
+        <span class="grow">
+          Ночной режим
+          <span class="muted small night-hint">С 22:00 до 6:00 или после ночного засыпания экран сам становится тёмным и тёплым — не слепит при кормлении.</span>
+        </span>
+      </label>
     </div>
 
     <div class="card">
       <div class="card-title">Данные</div>
-      <p class="muted small">
+      <p class="muted small data-note">
         Все данные хранятся только на этом устройстве, в браузере. Делайте резервные копии,
         чтобы не потерять историю и переносить её между устройствами.
       </p>
       <div class="row">
-        <button class="btn secondary grow" @click="exportBackup">⬇️ Экспорт</button>
-        <button class="btn secondary grow" @click="fileInput.click()">⬆️ Импорт</button>
+        <button class="btn secondary grow" @click="exportBackup"><Icon name="download" :size="18" /> Экспорт</button>
+        <button class="btn secondary grow" @click="fileInput.click()"><Icon name="upload" :size="18" /> Импорт</button>
       </div>
       <input ref="fileInput" type="file" accept="application/json,.json" class="hidden-input" @change="onImportFile" />
-      <p v-if="message" class="small" style="margin-top: 8px">{{ message }}</p>
+      <p v-if="message" class="small import-message" role="status">{{ message }}</p>
       <details v-if="reasons.length" class="small reasons">
         <summary>Подробнее</summary>
         <ul>
@@ -184,11 +202,19 @@ function cancelImport() {
 
 <style scoped>
 .child-row {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--c-border);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--c-border);
+  min-height: 60px;
 }
 
-.child-row:last-child { border-bottom: none; }
+.child-row:first-child,
+.edit-box:first-child { border-top: none; }
+
+.child-name {
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
 
 .dot {
   width: 12px;
@@ -197,26 +223,48 @@ function cancelImport() {
   flex-shrink: 0;
 }
 
-.btn.sm {
-  min-height: 40px;
-  padding: 6px 10px;
+.aids { margin-top: 2px; }
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--c-text-soft);
 }
 
+.icon-btn.danger { color: var(--c-urgent); }
+
 .edit-box {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--c-border);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--c-border);
 }
+
+.cancel-new { margin-top: var(--sp-2); }
+
+.add-child { margin-top: var(--sp-3); }
+
+.theme-row { flex-wrap: wrap; gap: var(--sp-2); }
+
+.theme-row .chip { min-height: 44px; }
+
+.data-note { line-height: 1.45; margin-bottom: var(--sp-3); }
+
+.import-message { margin: var(--sp-2) 0 0; }
 
 .hidden-input { display: none; }
 
-.reasons { margin-top: 6px; color: var(--c-text-soft); }
-.reasons ul { margin: 6px 0 0; padding-left: 18px; }
+.reasons { margin-top: var(--sp-2); color: var(--c-text-soft); }
+.reasons ul { margin: var(--sp-2) 0 0; padding-left: 18px; }
 
 /* Шторка выбора импорта — в стиле EventEditSheet */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 24, 0.45);
+  background: var(--c-overlay);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -227,8 +275,9 @@ function cancelImport() {
   width: 100%;
   max-width: 560px;
   background: var(--c-surface);
-  border-radius: 20px 20px 0 0;
-  padding: 8px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-top: 1px solid var(--c-border);
+  padding: var(--sp-2) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
   max-height: 88dvh;
   overflow-y: auto;
 }
@@ -238,13 +287,39 @@ function cancelImport() {
   height: 4px;
   border-radius: 2px;
   background: var(--c-border);
-  margin: 6px auto 14px;
+  margin: 6px auto var(--sp-3);
 }
 
 .import-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.night-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-base);
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+.night-check {
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  margin: 2px 0 0;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--c-primary);
+}
+
+.night-hint {
+  display: block;
+  margin-top: 2px;
 }
 </style>

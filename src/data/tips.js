@@ -1,17 +1,18 @@
 // База знаний: статьи-советы. Фильтруются по возрасту активного ребёнка (в месяцах).
 // body — обычный текст: абзацы через пустую строку, пункты списка начинаются с «— ».
 
+// icon — эмодзи (для текстов), iconName — линейная иконка экрана «Советы» (components/Icon.vue)
 export const TIP_CATEGORIES = [
-  { id: 'safety', label: 'Безопасность сна', icon: '🛡️' },
-  { id: 'settling', label: 'Укладывание и ритуалы', icon: '🌙' },
-  { id: 'schedule', label: 'Режим и его коррекция', icon: '🕐' },
-  { id: 'regress', label: 'Регрессы и скачки', icon: '🌀' },
-  { id: 'night', label: 'Ночной сон', icon: '✨' },
-  { id: 'environment', label: 'Условия сна', icon: '🛏️' },
-  { id: 'feeding', label: 'Кормление и сон', icon: '🍼' },
-  { id: 'health', label: 'Здоровье и сон', icon: '🩺' },
-  { id: 'special', label: 'Особые ситуации', icon: '🧳' },
-  { id: 'parent', label: 'Забота о себе', icon: '💛' }
+  { id: 'safety', label: 'Безопасность сна', icon: '🛡️', iconName: 'shield' },
+  { id: 'settling', label: 'Укладывание и ритуалы', icon: '🌙', iconName: 'moon' },
+  { id: 'schedule', label: 'Режим и его коррекция', icon: '🕐', iconName: 'clock' },
+  { id: 'regress', label: 'Регрессы и скачки', icon: '🌀', iconName: 'repeat' },
+  { id: 'night', label: 'Ночной сон', icon: '✨', iconName: 'star' },
+  { id: 'environment', label: 'Условия сна', icon: '🛏️', iconName: 'bed' },
+  { id: 'feeding', label: 'Кормление и сон', icon: '🍼', iconName: 'bottle' },
+  { id: 'health', label: 'Здоровье и сон', icon: '🩺', iconName: 'cross' },
+  { id: 'special', label: 'Особые ситуации', icon: '🧳', iconName: 'suitcase' },
+  { id: 'parent', label: 'Забота о себе', icon: '💛', iconName: 'heart' }
 ]
 
 // Источники, на которые опирается база знаний. Показываются внизу экрана «Советы».

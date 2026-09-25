@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, nextTick, onMounted } from 'vue'
+import { computed, ref, nextTick, watch } from 'vue'
 import dayjs from 'dayjs'
 import { useRoute } from 'vue-router'
 import { useChildrenStore } from '../stores/children'
@@ -9,6 +9,7 @@ import { formatDurationMin, plural } from '../logic/age'
 import { effectiveNorms, normsAgeM } from '../logic/norms'
 import { dailyStats, averageStats, normVerdict } from '../logic/stats'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
+import Icon from '../components/Icon.vue'
 
 const children = useChildrenStore()
 const events = useEventsStore()
@@ -98,68 +99,76 @@ function openSchedule() {
   showSchedule.value = true
 }
 
-onMounted(() => {
-  if (route.query.schedule) {
-    openSchedule()
-    nextTick(() => scheduleCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
-})
+// Открытие по ссылке ?schedule=1 — и при первом входе, и когда экран
+// статистики уже открыт (переход с того же маршрута не пересоздаёт компонент)
+watch(() => route.query.schedule, v => {
+  if (!v) return
+  openSchedule()
+  nextTick(() => scheduleCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}, { immediate: true })
 </script>
 
 <template>
   <div class="page">
     <h1 class="page-title">Статистика</h1>
 
-    <div class="row" style="margin-bottom: 12px">
+    <div class="row period">
       <button class="chip" :class="{ active: days === 7 }" @click="days = 7">7 дней</button>
       <button class="chip" :class="{ active: days === 14 }" @click="days = 14">14 дней</button>
     </div>
 
     <div class="card">
       <div class="card-title">Сон по дням, часы</div>
-      <svg :viewBox="`0 0 ${W} ${H}`" class="chart">
+      <svg :viewBox="`0 0 ${W} ${H}`" class="chart" role="img" aria-label="Сон по дням: ночной и дневной, в часах">
         <g v-for="line in gridLines" :key="line.h">
           <line :x1="PAD.left" :x2="W - PAD.right" :y1="line.y" :y2="line.y" class="grid" />
           <text :x="PAD.left - 5" :y="line.y + 3" class="axis">{{ line.h }}</text>
+        </g>
+
+        <g v-for="(b, i) in bars" :key="i">
+          <rect :x="b.x" :y="b.nightY" :width="b.barW" :height="b.nightHpx" rx="2" class="bar-night" />
+          <rect :x="b.x" :y="b.dayY" :width="b.barW" :height="b.dayHpx" rx="2" class="bar-day" />
+          <text v-if="days === 7 || i % 2 === 0" :x="b.x + b.barW / 2" :y="H - 6" class="axis mid">{{ b.label }}</text>
         </g>
 
         <template v-if="norms">
           <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[0] / 60)" :y2="y(norms.totalSleep[0] / 60)" class="norm" />
           <line :x1="PAD.left" :x2="W - PAD.right" :y1="y(norms.totalSleep[1] / 60)" :y2="y(norms.totalSleep[1] / 60)" class="norm" />
         </template>
-
-        <g v-for="(b, i) in bars" :key="i">
-          <rect :x="b.x" :y="b.nightY" :width="b.barW" :height="b.nightHpx" rx="3" fill="var(--c-night-bar)" />
-          <rect :x="b.x" :y="b.dayY" :width="b.barW" :height="b.dayHpx" rx="3" fill="var(--c-day-bar)" />
-          <text v-if="days === 7 || i % 2 === 0" :x="b.x + b.barW / 2" :y="H - 8" class="axis" text-anchor="middle">{{ b.label }}</text>
-        </g>
       </svg>
       <div class="legend">
-        <span class="leg-item"><span class="leg-dot" style="background: var(--c-night-bar)"></span>ночь</span>
-        <span class="leg-item"><span class="leg-dot" style="background: var(--c-day-bar)"></span>день</span>
-        <span class="leg-item"><span class="leg-line"></span>норма</span>
+        <span class="leg-item"><span class="leg-dot night"></span>ночь</span>
+        <span class="leg-item"><span class="leg-dot day"></span>день</span>
+        <span v-if="norms" class="leg-item"><span class="leg-line"></span>{{ norms.custom ? 'цель' : 'норма' }}</span>
       </div>
     </div>
 
-    <div v-if="avg" class="card">
-      <div class="card-title">В среднем за {{ avg.daysCounted }} дн. с данными</div>
-      <p class="muted small avg-note">Сегодняшний день ещё идёт — в среднее он не входит.</p>
-      <div class="avg-row"><span>Всего сна в сутки</span><b>{{ formatDurationMin(avg.total) }}</b></div>
-      <div class="avg-row"><span>Дневной сон</span><b>{{ formatDurationMin(avg.day) }}</b></div>
-      <div class="avg-row"><span>Дневных снов</span><b>{{ avg.naps }}</b></div>
-      <div v-if="norms" class="avg-row"><span>{{ norms.custom ? 'Цель по режиму' : 'Норма всего' }}</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
-      <p class="muted small" style="margin-top: 8px">{{ avgVerdict }}</p>
-    </div>
+    <section v-if="avg" class="avg">
+      <div class="avg-head">
+        <span class="avg-big serif num">{{ formatDurationMin(avg.total) }}</span>
+        <span class="muted">сна в сутки</span>
+      </div>
+      <p class="muted small avg-note">
+        В среднем за {{ avg.daysCounted }} дн. с данными. Сегодняшний день ещё идёт — в среднее он не входит.
+      </p>
+      <div class="avg-row"><span class="muted">Дневной сон</span><span class="num">{{ formatDurationMin(avg.day) }}</span></div>
+      <div class="avg-row"><span class="muted">Дневных снов</span><span class="num">{{ avg.naps }}</span></div>
+      <div v-if="norms" class="avg-row">
+        <span class="muted">{{ norms.custom ? 'Цель по режиму' : 'Норма всего' }}</span>
+        <span class="num">{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</span>
+      </div>
+      <p class="verdict">{{ avgVerdict }}</p>
+    </section>
 
-    <p v-else-if="hasTodayOnly" class="muted small" style="text-align: center">
+    <p v-else-if="hasTodayOnly" class="muted small empty-note">
       Средние появятся, когда завершится хотя бы один день с отметками сна — сегодняшний ещё идёт.
     </p>
-    <p v-else class="muted small" style="text-align: center">
+    <p v-else class="muted small empty-note">
       Пока нет данных — отмечайте сон на главном экране, и здесь появится картина недели.
     </p>
 
     <button v-if="!showSchedule" class="btn block schedule-open" @click="openSchedule">
-      🗓️ Построить расписание на завтра
+      <Icon name="calendar" :size="18" /> Построить расписание на завтра
     </button>
 
     <div v-if="showSchedule" ref="scheduleCard" class="card schedule">
@@ -173,18 +182,21 @@ onMounted(() => {
       <div class="day-bounds">
         <label class="bound">
           <span>Начало дня</span>
-          <input v-model="wakeStr" type="time" />
+          <input v-model="wakeStr" type="time" class="num" />
         </label>
         <label class="bound">
           <span>Конец дня</span>
-          <input v-model="bedStr" type="time" />
+          <input v-model="bedStr" type="time" class="num" />
         </label>
       </div>
 
-      <p v-if="schedule.warning" class="small sched-warning">{{ schedule.warning }}</p>
+      <p v-if="schedule.warning" class="small sched-warning">
+        <Icon name="alert" :size="16" class="warn-ico" />
+        <span>{{ schedule.warning }}</span>
+      </p>
 
       <!-- 24-часовая полоса -->
-      <div class="tl-wrap">
+      <div class="tl-wrap" aria-hidden="true">
         <div class="tl-bar">
           <div
             v-for="(s, i) in schedule.segments"
@@ -194,54 +206,46 @@ onMounted(() => {
             :style="{ left: `${(s.from / 1440) * 100}%`, width: `${((s.to - s.from) / 1440) * 100}%` }"
           ></div>
         </div>
-        <div class="tl-ticks">
+        <div class="tl-ticks num">
           <span v-for="t in timeTicks" :key="t" :style="{ left: `${(t / 24) * 100}%` }">{{ t }}</span>
         </div>
       </div>
 
+      <!-- Вертикальный таймлайн: тонкая линия и отметки -->
       <div class="sched-list">
         <div class="sched-row">
-          <span class="sr-ico">☀️</span>
+          <span class="sr-ico wake"><Icon name="sun" :size="18" /></span>
           <span class="sr-label">Подъём</span>
-          <span class="sr-time">{{ schedule.wake.hhmm }}</span>
+          <span class="sr-time num">{{ schedule.wake.hhmm }}</span>
         </div>
         <template v-for="(nap, i) in schedule.naps" :key="i">
           <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
           <div class="sched-row">
-            <span class="sr-ico">😴</span>
-            <span class="sr-label">Сон {{ i + 1 }} <span class="muted small">· {{ formatDurationMin(nap.durMin) }}</span></span>
-            <span class="sr-time">{{ nap.startHHMM }}–{{ nap.endHHMM }}</span>
+            <span class="sr-ico nap"><Icon name="star" :size="16" /></span>
+            <span class="sr-label">Сон {{ i + 1 }} <span class="muted small num">· {{ formatDurationMin(nap.durMin) }}</span></span>
+            <span class="sr-time num">{{ nap.startHHMM }}–{{ nap.endHHMM }}</span>
           </div>
         </template>
         <div class="sched-gap muted small">бодрствование ~{{ formatDurationMin(schedule.wakeWindowMin) }}</div>
-        <div class="sched-row night">
-          <span class="sr-ico">🌙</span>
+        <div class="sched-row">
+          <span class="sr-ico night"><Icon name="moon" :size="18" /></span>
           <span class="sr-label">Ночной сон</span>
-          <span class="sr-time">{{ schedule.bedtime.hhmm }}</span>
+          <span class="sr-time num">{{ schedule.bedtime.hhmm }}</span>
         </div>
       </div>
 
-      <p class="muted small" style="margin-top: 10px">Ориентир по средним, а не жёсткое правило — подстраивайте под признаки усталости малыша.</p>
+      <p class="muted small sched-foot">Ориентир по средним, а не жёсткое правило — подстраивайте под признаки усталости малыша.</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.avg-note {
-  margin: -4px 0 8px;
-}
-
-.sched-warning {
-  margin: 0 0 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--c-warn-soft);
-  line-height: 1.4;
-}
+.period { margin-bottom: var(--sp-3); }
 
 .chart {
   width: 100%;
   height: auto;
+  overflow: visible;
 }
 
 .grid {
@@ -249,93 +253,146 @@ onMounted(() => {
   stroke-width: 1;
 }
 
+.bar-night { fill: var(--c-night-bar); }
+.bar-day { fill: var(--c-day-bar); }
+
 .norm {
-  stroke: var(--c-warn);
+  stroke: var(--c-accent);
   stroke-width: 1.5;
   stroke-dasharray: 5 4;
-  opacity: 0.8;
 }
 
 .axis {
-  font-size: 9px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
   fill: var(--c-text-soft);
   text-anchor: end;
 }
 
-text.axis[text-anchor='middle'] { text-anchor: middle; }
+.axis.mid { text-anchor: middle; }
 
 .legend {
   display: flex;
-  gap: 16px;
+  gap: var(--sp-4);
   justify-content: center;
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
   color: var(--c-text-soft);
 }
 
 .leg-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .leg-dot {
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: 2px;
 }
+
+.leg-dot.night { background: var(--c-night-bar); }
+.leg-dot.day { background: var(--c-day-bar); }
 
 .leg-line {
   width: 16px;
-  border-top: 2px dashed var(--c-warn);
+  border-top: 2px dashed var(--c-accent);
 }
+
+/* Средние: крупная цифра и строки с разделителями, без карточки */
+.avg {
+  padding: var(--sp-2) var(--sp-1) 0;
+  margin-bottom: var(--sp-5);
+}
+
+.avg-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.avg-big {
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.avg-note { margin: var(--sp-1) 0 var(--sp-3); }
 
 .avg-row {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
-  padding: 4px 0;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  border-top: 1px solid var(--c-border);
 }
 
-.schedule-open {
-  margin-bottom: 12px;
+.avg-row .num { font-weight: 500; text-align: right; }
+
+.verdict {
+  margin: 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--c-border);
+  font-family: var(--font-serif);
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--c-text-soft);
 }
 
-.src-note {
-  margin: -4px 0 12px;
+.empty-note {
+  text-align: center;
+  margin: var(--sp-2) var(--sp-4) var(--sp-4);
 }
+
+.schedule-open { margin-bottom: var(--sp-3); }
+
+.src-note { margin: calc(-1 * var(--sp-1)) 0 var(--sp-3); }
 
 .day-bounds {
   display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
 }
 
 .bound {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
+  margin: 0;
 }
 
 .bound span {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--c-text-soft);
 }
 
-.bound input {
-  width: 100%;
+.bound input { width: 100%; }
+
+.sched-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: var(--c-warn-soft);
+  line-height: 1.4;
 }
 
+.warn-ico { margin-top: 1px; color: var(--c-warn); }
+
 /* 24-часовая полоса */
-.tl-wrap {
-  margin-bottom: 14px;
-}
+.tl-wrap { margin-bottom: var(--sp-4); }
 
 .tl-bar {
   position: relative;
-  height: 22px;
-  border-radius: 6px;
+  height: 18px;
+  border-radius: 4px;
   background: var(--c-surface-2);
   overflow: hidden;
 }
@@ -351,64 +408,72 @@ text.axis[text-anchor='middle'] { text-anchor: middle; }
 
 .tl-ticks {
   position: relative;
-  height: 14px;
-  margin-top: 2px;
+  height: 16px;
+  margin-top: var(--sp-1);
 }
 
 .tl-ticks span {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 9px;
+  font-size: var(--fs-xs);
   color: var(--c-text-soft);
 }
 
 .tl-ticks span:first-child { transform: none; }
 .tl-ticks span:last-child { transform: translateX(-100%); }
 
+/* Вертикальный таймлайн */
 .sched-list {
+  position: relative;
   display: flex;
   flex-direction: column;
 }
 
+.sched-list::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 18px;
+  bottom: 18px;
+  border-left: 1px solid var(--c-border);
+}
+
 .sched-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
+  gap: var(--sp-3);
+  min-height: 36px;
 }
 
-.sched-row.night {
-  background: var(--c-primary-soft);
+.sr-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+  background: var(--c-surface);
 }
 
-.sr-ico { font-size: 18px; }
+.sr-ico.wake { color: var(--c-accent); }
+.sr-ico.nap { color: var(--c-day-bar); }
+.sr-ico.night { color: var(--c-night-bar); }
 
 .sr-label {
   flex: 1;
-  font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .sr-time {
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  font-weight: 500;
 }
 
 .sched-gap {
-  padding: 3px 0 3px 40px;
-  position: relative;
+  padding: 2px 0 2px 39px;
 }
 
-.sched-gap::before {
-  content: '';
-  position: absolute;
-  left: 19px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--c-border);
-}
+.sched-foot { margin: var(--sp-3) 0 0; }
 </style>

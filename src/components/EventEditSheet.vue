@@ -5,6 +5,7 @@ import { useEventsStore } from '../stores/events'
 import { simNow } from '../composables/useNow'
 import { EVENT_TYPES, EVENT_TYPE_LIST } from '../data/eventTypes'
 import { findSleepConflict, isStaleOpenSleep } from '../logic/sleepAnalyzer'
+import Icon from './Icon.vue'
 
 // model: null (закрыт) | { isNew: true, type?, startedAt? } | существующее событие
 const props = defineProps({
@@ -147,7 +148,7 @@ async function remove() {
           <p v-if="error" class="error small">{{ error }}</p>
 
           <div class="row actions">
-            <button v-if="!form.isNew" class="btn danger" @click="remove">Удалить</button>
+            <button v-if="!form.isNew" class="btn danger" @click="remove"><Icon name="trash" :size="18" /> Удалить</button>
             <span class="grow"></span>
             <button class="btn secondary" @click="emit('close')">Отмена</button>
             <button class="btn" @click="save">{{ overlapConfirmed ? 'Сохранить всё равно' : 'Сохранить' }}</button>
@@ -162,7 +163,7 @@ async function remove() {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 24, 0.45);
+  background: var(--c-overlay);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -173,8 +174,9 @@ async function remove() {
   width: 100%;
   max-width: 560px;
   background: var(--c-surface);
-  border-radius: 20px 20px 0 0;
-  padding: 8px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-top: 1px solid var(--c-border);
+  padding: var(--sp-2) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
   max-height: 88dvh;
   overflow-y: auto;
 }
@@ -184,12 +186,12 @@ async function remove() {
   height: 4px;
   border-radius: 2px;
   background: var(--c-border);
-  margin: 6px auto 14px;
+  margin: 6px auto var(--sp-3);
 }
 
-.field { margin-bottom: 12px; }
+.field { margin-bottom: var(--sp-3); }
 
-.check-row { margin: 4px 0 12px; }
+.check-row { margin: var(--sp-1) 0 var(--sp-3); }
 
 .checkbox {
   width: 22px;
@@ -201,7 +203,7 @@ async function remove() {
 
 .check-label {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--fs-base);
   color: var(--c-text);
 }
 
@@ -209,5 +211,5 @@ async function remove() {
 
 .hint { margin: 6px 0 0; }
 
-.actions { margin-top: 16px; }
+.actions { margin-top: var(--sp-4); flex-wrap: wrap; }
 </style>

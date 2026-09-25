@@ -79,6 +79,15 @@ const ICONS = {
   repeat: [['path', { d: 'M4 12a7 7 0 0 1 12-5l2 2M20 12a7 7 0 0 1-12 5l-2-2M18 4v5h-5M6 20v-5h5' }]],
   play: [['path', { d: 'M8 5v14l11-7L8 5Z' }]],
   shield: [['path', { d: 'M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z' }]],
+  bottle: [
+    ['path', { d: 'M10 3h4M10.5 3v3L9 8.5V19a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8.5L13.5 6V3M9 12h6M9 15.5h6' }]
+  ],
+  suitcase: [
+    ['rect', { x: 4, y: 7, width: 16, height: 12, rx: 2 }],
+    ['path', { d: 'M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M4 12h16' }]
+  ],
+  cross: [['path', { d: 'M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6V4Z' }]],
+  bed: [['path', { d: 'M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5M6.5 11.5h.01' }]],
   baby: [
     ['circle', { cx: 12, cy: 10, r: 6 }],
     ['path', { d: 'M9.5 11.5h.01M14.5 11.5h.01M10.5 14a2 2 0 0 0 3 0M12 4c1 0 1.5.8 1.5 1.5' }]

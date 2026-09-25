@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
+import Icon from './Icon.vue'
 import { useNow, simNow, setSimulatedNow, resetSimulatedNow, isTimeSimulated } from '../composables/useNow'
 
 // Панель управления временем — только для локальной разработки/тестирования.
@@ -32,7 +33,7 @@ function reset() {
     <div v-if="open" class="panel">
       <div class="panel-head">
         <span class="tag">DEV · время</span>
-        <button class="x" @click="open = false" aria-label="Закрыть">×</button>
+        <button class="x" @click="open = false" aria-label="Закрыть"><Icon name="close" :size="18" /></button>
       </div>
       <input type="datetime-local" :value="inputValue" @input="onInput" />
       <div class="quick">
@@ -48,7 +49,7 @@ function reset() {
     </div>
 
     <button class="fab" :class="{ active: simulated }" @click="open = !open">
-      🕐 {{ label }}
+      <Icon name="clock" :size="16" /> {{ label }}
     </button>
   </div>
 </template>
@@ -76,16 +77,15 @@ function reset() {
   border-radius: 999px;
   background: var(--c-text);
   color: var(--c-bg);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   opacity: 0.85;
 }
 
 .fab.active {
   background: var(--c-warn);
-  color: #fff;
+  color: var(--c-bg);
   opacity: 1;
 }
 
@@ -94,8 +94,7 @@ function reset() {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
-  padding: 12px;
+  padding: var(--sp-3);
 }
 
 .panel-head {
@@ -106,18 +105,19 @@ function reset() {
 }
 
 .tag {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-xs);
+  font-weight: 500;
   color: var(--c-warn);
 }
 
 .x {
-  font-size: 20px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--c-text-soft);
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
+  margin: -6px -6px -6px 0;
 }
 
 .quick {
@@ -130,10 +130,10 @@ function reset() {
 .q {
   padding: 8px 0;
   border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
+  background: transparent;
   border: 1px solid var(--c-border);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 .q:active { opacity: 0.7; }
@@ -144,8 +144,8 @@ function reset() {
   border-radius: var(--radius-sm);
   background: var(--c-warn-soft);
   color: var(--c-warn);
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 500;
+  font-size: var(--fs-sm);
 }
 
 .reset:disabled {
@@ -156,7 +156,7 @@ function reset() {
 
 .hint {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--c-text-soft);
   line-height: 1.35;
 }

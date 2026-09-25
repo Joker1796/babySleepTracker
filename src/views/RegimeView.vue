@@ -6,6 +6,7 @@ import { formatDurationMin } from '../logic/age'
 import { getNorms } from '../data/sleepNorms'
 import { normsAgeM, normsCappedForChild } from '../logic/norms'
 import { REGIME_LIMITS, clampRegimeNumber, isValidHHMM } from '../data/regime'
+import Icon from '../components/Icon.vue'
 
 const children = useChildrenStore()
 const now = useNow()
@@ -70,13 +71,13 @@ function enableCustom() {
     <div v-if="norms" class="card norms-hint">
       <div class="card-title">Нормы для возраста {{ norms.label }}</div>
       <div class="summary">
-        <div class="sum-item"><span>Окно бодрствования</span><b>{{ norms.wakeWindow[0] }}–{{ norms.wakeWindow[1] }} мин</b></div>
-        <div class="sum-item"><span>Дневных снов</span><b>{{ norms.naps[0] === norms.naps[1] ? norms.naps[0] : `${norms.naps[0]}–${norms.naps[1]}` }}</b></div>
-        <div class="sum-item"><span>Дневной сон</span><b>{{ formatDurationMin(norms.daySleep[0]) }} – {{ formatDurationMin(norms.daySleep[1]) }}</b></div>
-        <div class="sum-item"><span>Ночной сон</span><b>{{ formatDurationMin(norms.nightSleep[0]) }} – {{ formatDurationMin(norms.nightSleep[1]) }}</b></div>
-        <div class="sum-item"><span>Всего за сутки</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
-        <div class="sum-item"><span>Чаще всего</span><b>{{ formatDurationMin(norms.typicalTotal[0]) }} – {{ formatDurationMin(norms.typicalTotal[1]) }}</b></div>
-        <div class="sum-item"><span>Отбой</span><b>{{ norms.bedtime[0] }}–{{ norms.bedtime[1] }}</b></div>
+        <div class="sum-item"><span>Окно бодрствования</span><span class="num">{{ norms.wakeWindow[0] }}–{{ norms.wakeWindow[1] }} мин</span></div>
+        <div class="sum-item"><span>Дневных снов</span><span class="num">{{ norms.naps[0] === norms.naps[1] ? norms.naps[0] : `${norms.naps[0]}–${norms.naps[1]}` }}</span></div>
+        <div class="sum-item"><span>Дневной сон</span><span class="num">{{ formatDurationMin(norms.daySleep[0]) }} – {{ formatDurationMin(norms.daySleep[1]) }}</span></div>
+        <div class="sum-item"><span>Ночной сон</span><span class="num">{{ formatDurationMin(norms.nightSleep[0]) }} – {{ formatDurationMin(norms.nightSleep[1]) }}</span></div>
+        <div class="sum-item"><span>Всего за сутки</span><span class="num">{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</span></div>
+        <div class="sum-item"><span>Чаще всего</span><span class="num">{{ formatDurationMin(norms.typicalTotal[0]) }} – {{ formatDurationMin(norms.typicalTotal[1]) }}</span></div>
+        <div class="sum-item"><span>Отбой</span><span class="num">{{ norms.bedtime[0] }}–{{ norms.bedtime[1] }}</span></div>
       </div>
       <p class="muted small norms-note">{{ norms.note }}</p>
       <p class="muted small norms-note">Суточный сон — по рекомендациям AASM (2016) и NSF (2015), ночной — с учётом пробуждений на кормление. Окна бодрствования и отбой — ориентиры: главное — признаки усталости малыша.</p>
@@ -89,18 +90,21 @@ function enableCustom() {
 
     <template v-else-if="!isCustom">
       <div class="card">
-        <p>Настраиваемый режим выключен — сейчас приложение считает окна сна автоматически по возрасту.</p>
-        <button class="btn block" @click="enableCustom">Включить настраиваемый режим</button>
+        <p class="off-text">Настраиваемый режим выключен — сейчас приложение считает окна сна автоматически по возрасту.</p>
+        <button class="btn block" @click="enableCustom"><Icon name="sliders" :size="18" /> Включить настраиваемый режим</button>
       </div>
     </template>
 
     <template v-else>
       <div class="card">
         <div class="card-title">Целевые ориентиры</div>
+        <div class="target-total">
+          <span class="target-big serif num">{{ formatDurationMin(totalSleepMin) }}</span>
+          <span class="muted">сна за сутки</span>
+        </div>
         <div class="summary">
-          <div class="sum-item"><span>Дневной сон</span><b>{{ formatDurationMin(daySleepMin) }}</b></div>
-          <div class="sum-item"><span>Ночной сон</span><b>{{ formatDurationMin(nightSleepMin) }}</b></div>
-          <div class="sum-item"><span>Всего за сутки</span><b>{{ formatDurationMin(totalSleepMin) }}</b></div>
+          <div class="sum-item"><span>Дневной сон</span><span class="num">{{ formatDurationMin(daySleepMin) }}</span></div>
+          <div class="sum-item"><span>Ночной сон</span><span class="num">{{ formatDurationMin(nightSleepMin) }}</span></div>
         </div>
       </div>
 
@@ -109,19 +113,19 @@ function enableCustom() {
 
         <div class="field">
           <label>Окно бодрствования, мин</label>
-          <input :value="regime.wakeWindow" @change="onNumber('wakeWindow', $event)" type="number" :min="REGIME_LIMITS.wakeWindow[0]" :max="REGIME_LIMITS.wakeWindow[1]" inputmode="numeric" />
+          <input :value="regime.wakeWindow" @change="onNumber('wakeWindow', $event)" type="number" class="num" :min="REGIME_LIMITS.wakeWindow[0]" :max="REGIME_LIMITS.wakeWindow[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>Количество дневных снов</label>
-          <input :value="regime.napCount" @change="onNumber('napCount', $event)" type="number" :min="REGIME_LIMITS.napCount[0]" :max="REGIME_LIMITS.napCount[1]" inputmode="numeric" />
+          <input :value="regime.napCount" @change="onNumber('napCount', $event)" type="number" class="num" :min="REGIME_LIMITS.napCount[0]" :max="REGIME_LIMITS.napCount[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>Продолжительность одного сна, мин</label>
-          <input :value="regime.napDurationMin" @change="onNumber('napDurationMin', $event)" type="number" :min="REGIME_LIMITS.napDurationMin[0]" :max="REGIME_LIMITS.napDurationMin[1]" inputmode="numeric" />
+          <input :value="regime.napDurationMin" @change="onNumber('napDurationMin', $event)" type="number" class="num" :min="REGIME_LIMITS.napDurationMin[0]" :max="REGIME_LIMITS.napDurationMin[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>Начало ночного сна (отбой)</label>
-          <input :value="regime.nightStart" @change="onTime('nightStart', $event)" type="time" />
+          <input :value="regime.nightStart" @change="onTime('nightStart', $event)" type="time" class="num" />
         </div>
       </div>
 
@@ -130,16 +134,16 @@ function enableCustom() {
 
         <div class="field">
           <label>Утренний подъём</label>
-          <input :value="regime.morningWake" @change="onTime('morningWake', $event)" type="time" />
+          <input :value="regime.morningWake" @change="onTime('morningWake', $event)" type="time" class="num" />
           <p class="muted small hint">Используется в расписании на завтра, пока отметок сна мало.</p>
         </div>
         <div class="field">
           <label>Продолжительность ночного сна, мин</label>
-          <input :value="regime.nightSleepMin" @change="onNumber('nightSleepMin', $event)" type="number" :min="REGIME_LIMITS.nightSleepMin[0]" :max="REGIME_LIMITS.nightSleepMin[1]" inputmode="numeric" />
+          <input :value="regime.nightSleepMin" @change="onNumber('nightSleepMin', $event)" type="number" class="num" :min="REGIME_LIMITS.nightSleepMin[0]" :max="REGIME_LIMITS.nightSleepMin[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>За сколько минут до сна «сбавить темп»</label>
-          <input :value="regime.windDownMin" @change="onNumber('windDownMin', $event)" type="number" :min="REGIME_LIMITS.windDownMin[0]" :max="REGIME_LIMITS.windDownMin[1]" inputmode="numeric" />
+          <input :value="regime.windDownMin" @change="onNumber('windDownMin', $event)" type="number" class="num" :min="REGIME_LIMITS.windDownMin[0]" :max="REGIME_LIMITS.windDownMin[1]" inputmode="numeric" />
         </div>
         <label class="switch-row">
           <input :checked="regime.shortNapReduce !== false" @change="onToggle('shortNapReduce', $event)" type="checkbox" />
@@ -147,7 +151,7 @@ function enableCustom() {
         </label>
       </div>
 
-      <p class="muted small">Значения переопределяют возрастные нормы: прогноз следующего сна, фазы «скоро сон / пора укладывать» и оценка суточной нормы считаются по ним. Чтобы вернуться к авторасчёту, переключите режим на «✨ Авто» на экране «Сегодня».</p>
+      <p class="muted small footnote">Значения переопределяют возрастные нормы: прогноз следующего сна, фазы «скоро сон / пора укладывать» и оценка суточной нормы считаются по ним. Чтобы вернуться к авторасчёту, переключите режим на «Авто» на экране «Сегодня».</p>
     </template>
   </div>
 </template>
@@ -156,43 +160,63 @@ function enableCustom() {
 .summary {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
 .sum-item {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 40px;
+  border-top: 1px solid var(--c-border);
 }
 
-.sum-item span { color: var(--c-text-soft); }
+.sum-item span:first-child { color: var(--c-text-soft); }
+.sum-item .num { font-weight: 500; text-align: right; }
 
-.norms-hint {
-  border: 1px solid var(--c-primary);
-  background: var(--c-primary-soft);
+.target-total {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: var(--sp-2);
+}
+
+.target-big {
+  font-size: var(--fs-xl);
+  font-weight: 500;
 }
 
 .norms-note {
-  margin: 10px 0 0;
+  margin: var(--sp-3) 0 0;
   line-height: 1.45;
 }
 
-.field { margin-bottom: 12px; }
+.off-text { margin-bottom: var(--sp-3); }
 
-.hint { margin: 4px 0 0; }
+.field { margin-bottom: var(--sp-3); }
 
-.field input[type='number'],
-.field input[type='time'] {
-  width: 100%;
-}
+.hint { margin: var(--sp-1) 0 0; }
 
 .switch-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  gap: var(--sp-3);
+  min-height: 44px;
+  margin: 0;
+  font-size: var(--fs-base);
+  color: var(--c-text);
   cursor: pointer;
 }
 
-.switch-row input { width: 20px; height: 20px; flex-shrink: 0; }
+.switch-row input {
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--c-primary);
+}
+
+.footnote { margin: 0 var(--sp-1); line-height: 1.45; }
 </style>

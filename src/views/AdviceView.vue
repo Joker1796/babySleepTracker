@@ -5,6 +5,7 @@ import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
 import { normsAgeM } from '../logic/norms'
 import { TIPS, TIP_CATEGORIES, TIP_SOURCES, TIPS_DISCLAIMER, tipsForAge } from '../data/tips'
+import Icon from '../components/Icon.vue'
 
 const route = useRoute()
 const children = useChildrenStore()
@@ -61,18 +62,21 @@ onMounted(async () => {
     <p class="disclaimer muted">{{ TIPS_DISCLAIMER }}</p>
 
     <div class="row kb-head">
-      <div class="card-title grow" style="margin: 0">База знаний</div>
+      <h2 class="grow kb-title">База знаний</h2>
       <button class="chip" :class="{ active: showAllAges }" @click="showAllAges = !showAllAges">
         {{ showAllAges ? 'Все возрасты' : 'По возрасту' }}
       </button>
     </div>
 
-    <div v-for="cat in categories" :key="cat.id" class="category">
-      <h3 class="cat-title">{{ cat.icon }} {{ cat.label }}</h3>
-      <div class="card tip-card" v-for="tip in cat.tips" :key="tip.id" :id="`tip-${tip.id}`">
-        <button class="tip-head" @click="toggle(tip.id)">
+    <section v-for="cat in categories" :key="cat.id" class="category">
+      <h3 class="cat-title">
+        <Icon :name="cat.iconName || 'book'" :size="18" class="cat-ico" />
+        {{ cat.label }}
+      </h3>
+      <div class="tip" v-for="tip in cat.tips" :key="tip.id" :id="`tip-${tip.id}`">
+        <button class="tip-head" :aria-expanded="expandedId === tip.id" @click="toggle(tip.id)">
           <span class="grow">{{ tip.title }}</span>
-          <span class="muted">{{ expandedId === tip.id ? '−' : '+' }}</span>
+          <Icon name="chevron-down" :size="18" class="tip-chevron" :class="{ open: expandedId === tip.id }" />
         </button>
         <div v-if="expandedId === tip.id" class="tip-body">
           <template v-for="(block, i) in renderBody(tip.body)" :key="i">
@@ -83,82 +87,90 @@ onMounted(async () => {
           </template>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card sources">
-      <button class="tip-head" :aria-expanded="showSources" @click="showSources = !showSources">
-        <span class="grow">📚 Источники</span>
-        <span class="muted">{{ showSources ? '−' : '+' }}</span>
-      </button>
-      <div v-if="showSources" class="tip-body">
-        <p>Статьи сверены с рекомендациями педиатрических и сомнологических организаций. Окна бодрствования и распорядок дня — практические ориентиры, а не строгие медицинские нормы.</p>
-        <ul>
-          <li v-for="src in TIP_SOURCES" :key="src.title">
-            <strong>{{ src.title }}.</strong> {{ src.ref }}
-          </li>
-        </ul>
+    <section class="category sources">
+      <div class="tip">
+        <button class="tip-head" :aria-expanded="showSources" @click="showSources = !showSources">
+          <Icon name="book" :size="18" class="cat-ico" />
+          <span class="grow">Источники</span>
+          <Icon name="chevron-down" :size="18" class="tip-chevron" :class="{ open: showSources }" />
+        </button>
+        <div v-if="showSources" class="tip-body">
+          <p>Статьи сверены с рекомендациями педиатрических и сомнологических организаций. Окна бодрствования и распорядок дня — практические ориентиры, а не строгие медицинские нормы.</p>
+          <ul>
+            <li v-for="src in TIP_SOURCES" :key="src.title">
+              <strong>{{ src.title }}.</strong> {{ src.ref }}
+            </li>
+          </ul>
+        </div>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.norms .norm-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  padding: 4px 0;
-}
-
-.kb-head { margin: 16px 0 8px; }
-
 .disclaimer {
-  margin: 0 2px 4px;
-  font-size: 13px;
+  margin: 0 var(--sp-1) var(--sp-1);
+  font-size: var(--fs-sm);
   line-height: 1.45;
 }
 
-.sources {
-  padding: 0;
-  margin-top: 20px;
-  overflow: hidden;
-}
+.kb-head { margin: var(--sp-4) 0 var(--sp-1); }
+
+.kb-title { margin: 0; }
+
+.category { margin-top: var(--sp-4); }
 
 .cat-title {
-  margin: 14px 2px 8px;
-  font-size: 14px;
-  color: var(--c-text-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-md);
 }
 
-.tip-card {
-  padding: 0;
-  margin-bottom: 8px;
-  overflow: hidden;
-}
+.cat-ico { color: var(--c-accent); }
+
+.tip { border-top: 1px solid var(--c-border); }
+
+.category .tip:last-child { border-bottom: 1px solid var(--c-border); }
 
 .tip-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   width: 100%;
   text-align: left;
-  padding: 14px 16px;
-  font-weight: 600;
-  font-size: 14.5px;
+  padding: var(--sp-3) 0;
+  font-weight: 500;
+  font-size: var(--fs-base);
   min-height: 48px;
 }
 
+.tip-chevron {
+  color: var(--c-text-soft);
+  transition: transform 0.2s;
+}
+
+.tip-chevron.open { transform: rotate(180deg); }
+
 .tip-body {
-  padding: 0 16px 14px;
-  font-size: 14px;
+  padding: 0 0 var(--sp-4);
+  font-size: var(--fs-base);
+  line-height: 1.55;
 }
 
 .tip-body p { white-space: pre-line; }
 
 .tip-body ul {
-  margin: 0 0 8px;
+  margin: 0 0 var(--sp-2);
   padding-left: 18px;
 }
 
-.tip-body li { margin-bottom: 4px; }
+.tip-body li { margin-bottom: var(--sp-1); }
+
+.sources { margin-top: var(--sp-5); }
+
+.sources .tip-body { font-size: var(--fs-sm); color: var(--c-text-soft); }
 </style>

@@ -7,6 +7,7 @@ import { useNow } from '../composables/useNow'
 import { EVENT_TYPES } from '../data/eventTypes'
 import { formatDurationMin } from '../logic/age'
 import { poopVerb } from '../logic/gender'
+import Icon from './Icon.vue'
 
 const props = defineProps({
   dayTs: { type: Number, required: true },
@@ -36,7 +37,7 @@ const dayEvents = computed(() => {
 })
 
 function typeOf(e) {
-  return EVENT_TYPES[e.type] || { label: e.type, icon: '❓', kind: 'point', color: 'var(--c-text-soft)', softColor: 'var(--c-surface-2)' }
+  return EVENT_TYPES[e.type] || { label: e.type, iconName: 'star', kind: 'point', color: 'var(--c-text-soft)', softColor: 'var(--c-surface-2)' }
 }
 
 function timeLabel(e) {
@@ -63,44 +64,42 @@ function durLabel(e) {
       :disabled="!editable"
       @click="emit('edit', e)"
     >
-      <span class="tl-icon" :style="{ background: typeOf(e).softColor }">{{ typeOf(e).icon }}</span>
+      <span class="tl-icon" :style="{ color: typeOf(e).color }">
+        <Icon :name="typeOf(e).iconName || 'star'" :size="20" />
+      </span>
       <span class="grow tl-body">
         <span class="tl-title">
           {{ labelOf(e) }}
           <span v-if="e.endedAt == null && typeOf(e).kind === 'interval'" class="ongoing">идёт</span>
         </span>
-        <span class="tl-time muted">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template></span>
+        <span class="tl-time muted num">{{ timeLabel(e) }}<template v-if="durLabel(e)"> · {{ durLabel(e) }}</template></span>
         <span v-if="e.note" class="tl-note muted">{{ e.note }}</span>
       </span>
-      <span v-if="editable" class="tl-chevron muted">›</span>
+      <Icon v-if="editable" name="chevron-right" :size="18" class="tl-chevron" />
     </button>
   </div>
 </template>
 
 <style scoped>
-.empty { padding: 8px 2px; }
+.empty { padding: var(--sp-3) 0; border-top: 1px solid var(--c-border); margin: 0; }
 
 .tl-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   width: 100%;
   text-align: left;
-  padding: 10px 4px;
-  border-bottom: 1px solid var(--c-border);
+  padding: 10px 0;
+  border-top: 1px solid var(--c-border);
   min-height: 56px;
 }
 
-.tl-item:last-child { border-bottom: none; }
-
 .tl-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 19px;
   flex-shrink: 0;
 }
 
@@ -111,23 +110,23 @@ function durLabel(e) {
 }
 
 .tl-title {
-  font-weight: 600;
-  font-size: 14.5px;
+  font-weight: 500;
+  font-size: var(--fs-base);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .ongoing {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--c-walk);
-  background: var(--c-walk-soft);
-  padding: 1px 8px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--c-accent);
+  border: 1px solid var(--c-accent);
+  padding: 0 8px;
   border-radius: 999px;
 }
 
-.tl-time, .tl-note { font-size: 13px; }
+.tl-time, .tl-note { font-size: var(--fs-sm); }
 
-.tl-chevron { font-size: 20px; }
+.tl-chevron { color: var(--c-text-soft); }
 </style>

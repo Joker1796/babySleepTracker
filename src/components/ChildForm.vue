@@ -78,6 +78,7 @@ async function save() {
           :key="g.id"
           class="chip"
           :class="{ active: gender === g.id }"
+          :aria-pressed="gender === g.id"
           @click="gender = g.id"
         >{{ g.icon }} {{ g.label }}</button>
       </div>
@@ -90,6 +91,7 @@ async function save() {
           :key="f.id"
           class="chip"
           :class="{ active: feeding === f.id }"
+          :aria-pressed="feeding === f.id"
           @click="feeding = f.id"
         >{{ f.icon }} {{ f.label }}</button>
       </div>
@@ -102,6 +104,7 @@ async function save() {
           :key="a.id"
           class="chip"
           :class="{ active: aids.includes(a.id) }"
+          :aria-pressed="aids.includes(a.id)"
           @click="toggleAid(a.id)"
         >{{ a.icon }} {{ a.label }}</button>
       </div>
@@ -111,17 +114,18 @@ async function save() {
       <label>Цвет</label>
       <div class="colors">
         <button
-          v-for="c in CHILD_COLORS"
+          v-for="(c, i) in CHILD_COLORS"
           :key="c"
           class="swatch"
           :class="{ active: color === c }"
-          :style="{ background: c }"
+          :aria-label="`Цвет профиля ${i + 1}`"
+          :aria-pressed="color === c"
           @click="color = c"
-        ></button>
+        ><span class="swatch-dot" :style="{ background: c }"></span></button>
       </div>
     </div>
     <p v-if="error" class="error small">{{ error }}</p>
-    <div class="row">
+    <div class="row actions">
       <button v-if="child" class="btn secondary grow" @click="emit('cancel')">Отмена</button>
       <button class="btn grow" @click="save">{{ child ? 'Сохранить' : 'Добавить' }}</button>
     </div>
@@ -129,31 +133,50 @@ async function save() {
 </template>
 
 <style scoped>
-.field { margin-bottom: 12px; }
+.field { margin-bottom: var(--sp-4); }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
-.hint { margin-top: 6px; }
+/* Чипы выбора — обводка; активный залит чернилами. Высота 44px для касания */
+.chips .chip {
+  min-height: 44px;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+}
+
+.chips .chip.active { color: var(--c-on-primary); }
+
+.hint { margin: var(--sp-2) 0 0; line-height: 1.45; }
 
 .colors {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
 }
 
 .swatch {
-  width: 34px;
-  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: 1px solid transparent;
 }
 
-.swatch.active {
-  border-color: var(--c-text);
+.swatch.active { border-color: var(--c-text); }
+
+.swatch-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
 }
 
 .error { color: var(--c-urgent); }
+
+.actions { margin-top: var(--sp-2); }
 </style>
