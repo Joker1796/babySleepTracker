@@ -3,8 +3,11 @@ import dayjs from 'dayjs'
 // Границы «дня» для разделения дневного и ночного сна
 export const DAY_START_H = 7
 export const NIGHT_START_H = 19
-// Сон короче этого порога считается коротким (неполный цикл)
+// Дневной сон короче этого порога считается коротким (неполный цикл):
+// после него окно бодрствования сокращается и предлагается продлить сон.
 export const SHORT_NAP_MIN = 40
+// «Ложный старт» ночи: сон после вечернего купания короче этого порога
+export const SHORT_NIGHT_START_MIN = 30
 // Открытый сон дольше этого порога, скорее всего, — забытая отметка пробуждения
 export const STALE_SLEEP_H = 16
 const STALE_SLEEP_MS = STALE_SLEEP_H * 3600 * 1000
@@ -74,6 +77,13 @@ function overlapMin(session, from, to, now) {
   return Math.max(0, (end - start) / 60000)
 }
 
+// Момент времени этого дня в h:m по местным часам. Через .hour()/.minute(),
+// а не startOf('day').add(N, 'hour'): в день перехода на летнее/зимнее время
+// сложение часов «съезжает» на час.
+export function atTime(day, h, m = 0) {
+  return dayjs(day).hour(h).minute(m).second(0).millisecond(0)
+}
+
 // Сон, начавшийся в дневное окно этой даты, считается дневным (nap).
 // Грубая эвристика по часу начала — используется там, где нет полного контекста дня
 // (текущий идущий сон, поиск начала ночного отбоя).
@@ -84,26 +94,32 @@ export function isDaytimeStart(session) {
 
 // Утреннее пробуждение: конец ночного/утреннего сна, завершившегося этим утром.
 // Это нижняя граница дневного окна — дневной сон считаем от подъёма после ночи.
-export function morningWake(events, dayStart, now = Date.now()) {
+// findMorningWake — реальное пробуждение или null (нет отметок ночного сна);
+// morningWake — то же, но с запасным значением DAY_START_H.
+export function findMorningWake(events, dayStart) {
   const dayStartTs = dayStart.valueOf()
-  const dayWindowFrom = dayStart.add(DAY_START_H, 'hour').valueOf()
-  const noon = dayStart.add(12, 'hour').valueOf()
+  const dayWindowFrom = atTime(dayStart, DAY_START_H).valueOf()
+  const noon = atTime(dayStart, 12).valueOf()
   // Ночная/ранняя сессия, начавшаяся до утра и закончившаяся до полудня
   const enders = sleepSessions(events)
     .filter(s => s.endedAt != null && s.startedAt < dayWindowFrom &&
       s.endedAt > dayStartTs && s.endedAt <= noon)
     .map(s => s.endedAt)
-  return enders.length ? Math.max(...enders) : dayWindowFrom
+  return enders.length ? Math.max(...enders) : null
+}
+
+export function morningWake(events, dayStart) {
+  return findMorningWake(events, dayStart) ?? atTime(dayStart, DAY_START_H).valueOf()
 }
 
 // Начало вечернего отбоя: верхняя граница дневного окна.
 // 1) сон после купания (если купание в 19:00–22:00);
 // 2) иначе последний сон, начатый с 19:00 (последний вечерний сон = ночной);
-// 3) иначе 21:00.
-export function eveningBedtimeStart(events, dayStart, dayEnd) {
+// 3) иначе 21:00 (findEveningBedtime в этом случае возвращает null).
+export function findEveningBedtime(events, dayStart, dayEnd) {
   const dayEndTs = dayEnd.valueOf()
-  const bathFrom = dayStart.add(19, 'hour').valueOf()
-  const bathTo = dayStart.add(22, 'hour').valueOf()
+  const bathFrom = atTime(dayStart, 19).valueOf()
+  const bathTo = atTime(dayStart, 22).valueOf()
   const sessions = sleepSessions(events)
 
   const bath = events
@@ -115,11 +131,15 @@ export function eveningBedtimeStart(events, dayStart, dayEnd) {
     if (afterBath) return afterBath.startedAt
   }
 
-  const nightStart = dayStart.add(NIGHT_START_H, 'hour').valueOf()
+  const nightStart = atTime(dayStart, NIGHT_START_H).valueOf()
   const eveningSleeps = sessions.filter(s => s.startedAt >= nightStart && s.startedAt < dayEndTs)
   if (eveningSleeps.length) return eveningSleeps[eveningSleeps.length - 1].startedAt
 
-  return dayStart.add(21, 'hour').valueOf()
+  return null
+}
+
+export function eveningBedtimeStart(events, dayStart, dayEnd) {
+  return findEveningBedtime(events, dayStart, dayEnd) ?? atTime(dayStart, 21).valueOf()
 }
 
 // Статистика за календарный день, к которому относится dateTs
@@ -188,10 +208,10 @@ export function currentState(events, now = Date.now()) {
   }
 }
 
-// Последний завершённый дневной сон сегодня
+// Последний завершённый дневной сон сегодня — по тому же определению
+// дневного сна, что и в analyzeDay (от утреннего подъёма до отбоя).
 export function lastNapToday(events, now = Date.now()) {
-  const today = dayjs(now).startOf('day')
-  return sleepSessions(events)
-    .filter(s => s.endedAt != null && isDaytimeStart(s) && dayjs(s.startedAt).isSame(today, 'day'))
+  return analyzeDay(events, now, now).naps
+    .filter(s => s.endedAt != null && s.endedAt <= now)
     .pop() || null
 }

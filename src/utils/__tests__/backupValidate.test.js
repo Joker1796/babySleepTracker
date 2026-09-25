@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  validateBackup, parseBackupText, checkBackupHeader, isValidBirthDate, isValidRegime, BACKUP_VERSION
+  validateBackup, parseBackupText, checkBackupHeader, isValidBirthDate, isValidRegime, isValidDueDate, BACKUP_VERSION
 } from '../backupValidate'
 
 const NOW = new Date('2026-07-04T12:00:00').valueOf()
@@ -121,5 +121,32 @@ describe('validateBackup', () => {
   it('в режиме «Добавить» события можно привязать к уже существующему ребёнку', () => {
     const r = validateBackup(backup([], [ev({ childId: 'old' })]), { existingChildIds: ['old'], now: NOW })
     expect(r.events).toHaveLength(1)
+  })
+})
+
+describe('ПДР (dueDate) при импорте', () => {
+  it('корректная дата и null сохраняются', () => {
+    const r = validateBackup(backup([child({ dueDate: '2026-03-01' }), child({ id: 'c2', dueDate: null })], []), { now: NOW })
+    expect(r.children[0].dueDate).toBe('2026-03-01')
+    expect(r.children[1].dueDate).toBeNull()
+    expect(r.reasons).toHaveLength(0)
+  })
+
+  it('отсутствующая ПДР дозаполняется null', () => {
+    const r = validateBackup(backup([child()], []), { now: NOW })
+    expect(r.children[0].dueDate).toBeNull()
+  })
+
+  it('битая ПДР сбрасывается в null, ребёнок не теряется', () => {
+    const r = validateBackup(backup([child({ dueDate: '2026-02-30' }), child({ id: 'c2', dueDate: 12345 })], []), { now: NOW })
+    expect(r.children).toHaveLength(2)
+    expect(r.children.every(c => c.dueDate === null)).toBe(true)
+    expect(r.reasons.join(' ')).toMatch(/ПДР/)
+  })
+
+  it('isValidDueDate', () => {
+    expect(isValidDueDate(null)).toBe(true)
+    expect(isValidDueDate('2027-01-01')).toBe(true) // в будущем — допустимо
+    expect(isValidDueDate('01.01.2026')).toBe(false)
   })
 })

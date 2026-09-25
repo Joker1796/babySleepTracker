@@ -29,7 +29,7 @@ describe('фазы', () => {
     const g = buildGuidance({
       child,
       events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
-      now: ts('2026-07-04T16:00') // окно 135, осталось ~15
+      now: ts('2026-07-04T15:50') // окно 128, осталось ~18
     })
     expect(g.phase).toBe('wind-down')
     expect(g.showStartSettling).toBe(true)
@@ -325,5 +325,33 @@ describe('metNorms', () => {
     const norms = getNorms(5)
     expect(metNorms({ daySleepMin: 200, totalSleepMin: 860 }, norms).all).toBe(true)
     expect(metNorms({ daySleepMin: 30, totalSleepMin: 400 }, norms).all).toBe(false)
+  })
+})
+
+describe('мягкие формулировки', () => {
+  it('окно превышено — не «уложите, пока не перегулял», а про признаки усталости', () => {
+    const g = buildGuidance({
+      child,
+      events: [sleep('2026-07-04T12:30', '2026-07-04T14:00')],
+      now: ts('2026-07-04T16:30')
+    })
+    expect(g.phase).toBe('time-to-sleep')
+    const text = g.lines.join(' ')
+    expect(text).not.toMatch(/перегулял/)
+    expect(text).toMatch(/признаки усталости/)
+  })
+
+  it('младше 3 мес — утром нет «маловато» и «непростого дня»', () => {
+    const newborn = { ...child, birthDate: '2026-06-01' }
+    const events = [sleep('2026-07-03T13:00', '2026-07-03T13:30'), sleep('2026-07-03T21:00', '2026-07-04T05:00')]
+    const g = buildGuidance({ child: newborn, events, now: ts('2026-07-04T07:30') })
+    const all = [g.greeting.line, ...g.greeting.attention].join(' ')
+    expect(all).not.toMatch(/маловато|немного|непростым/)
+  })
+
+  it('старше 3 мес — при малом дневном сне вчера мягкая подсказка есть', () => {
+    const events = [sleep('2026-07-03T13:00', '2026-07-03T13:30'), sleep('2026-07-03T21:00', '2026-07-04T05:00')]
+    const g = buildGuidance({ child, events, now: ts('2026-07-04T07:30') })
+    expect(g.greeting.attention.join(' ')).toMatch(/Дневного сна вчера было немного/)
   })
 })

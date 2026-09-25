@@ -6,13 +6,13 @@ describe('fillChildDefaults', () => {
     const c = fillChildDefaults({ id: 'a', name: 'Вася', birthDate: '2025-01-01' }, 1)
     expect(c).toEqual({
       id: 'a', name: 'Вася', birthDate: '2025-01-01',
-      color: CHILD_COLORS[1], feeding: 'breast', aids: [], gender: null, regime: { mode: 'auto' }
+      color: CHILD_COLORS[1], feeding: 'breast', aids: [], gender: null, dueDate: null, regime: { mode: 'auto' }
     })
   })
 
   it('не меняет уже заданные значения', () => {
     const src = {
-      id: 'a', color: '#123', feeding: 'mixed', aids: ['swaddle'], gender: 'male',
+      id: 'a', color: '#123', feeding: 'mixed', aids: ['swaddle'], gender: 'male', dueDate: '2025-03-01',
       regime: { mode: 'custom', wakeWindow: 80 }
     }
     const c = fillChildDefaults(src)

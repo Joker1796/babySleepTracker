@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import { buildAdvice } from './advisor'
-import { analyzeDay, isDaytimeStart, DAY_START_H, SHORT_NAP_MIN, durationMin, lastNapToday } from './sleepAnalyzer'
+import { JUDGE_SLEEP_FROM_M } from './norms'
+import { analyzeDay, isDaytimeStart, DAY_START_H, SHORT_NAP_MIN, SHORT_NIGHT_START_MIN, durationMin, lastNapToday, atTime } from './sleepAnalyzer'
 import { formatDurationMin, plural } from './age'
 import { avgWakeWindow } from '../data/sleepNorms'
 import { activitiesForAge } from '../data/activityIdeas'
@@ -40,7 +41,7 @@ export function milestoneToday(child, now = Date.now()) {
   return { months, isYear: false, text: `Сегодня малышу ${months} ${plural(months, 'месяц', 'месяца', 'месяцев')}! 🎉` }
 }
 
-// Уложился ли малыш в нормы по итогам дня
+// Уложился ли малыш в нормы по итогам дня (по широкому рекомендованному коридору)
 export function metNorms(summary, norms) {
   const dayOk = summary.daySleepMin >= norms.daySleep[0] - 20
   const totalOk = summary.totalSleepMin >= norms.totalSleep[0] - 30
@@ -89,8 +90,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     }
   }
   const morningAfterBedtime = bedtimeStart != null
-    ? dayjs(bedtimeStart).add(dayjs(bedtimeStart).hour() >= DAY_START_H ? 1 : 0, 'day')
-        .startOf('day').add(DAY_START_H, 'hour').valueOf()
+    ? atTime(dayjs(bedtimeStart).add(dayjs(bedtimeStart).hour() >= DAY_START_H ? 1 : 0, 'day'), DAY_START_H).valueOf()
     : null
   const isNightWaking = !state.sleeping && bedtimeStart != null &&
     state.lastWakeAt != null && state.lastWakeAt >= bedtimeStart &&
@@ -102,12 +102,12 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   const lastSleepMin = state.lastCompleted ? durationMin(state.lastCompleted) : null
   const justWokeRecently = state.awakeMin != null && state.awakeMin <= 20
 
-  // Короткий дневной сон (<35 мин) → предложить продлить сон
+  // Короткий дневной сон (< SHORT_NAP_MIN) → предложить продлить сон
   const shortDayNap = !state.sleeping && !isNightWaking && !isNightNow &&
-    lastNapMin != null && lastNapMin < 35 && justWokeRecently
-  // Короткий ночной сон после купания (<30 мин) → тоже предложить продлить
+    lastNapMin != null && lastNapMin < SHORT_NAP_MIN && justWokeRecently
+  // Короткий ночной сон после купания (< SHORT_NIGHT_START_MIN) → тоже предложить продлить
   const shortNightAfterBath = !state.sleeping && isNightWaking && hasBathToday &&
-    lastSleepMin != null && lastSleepMin < 30 && justWokeRecently
+    lastSleepMin != null && lastSleepMin < SHORT_NIGHT_START_MIN && justWokeRecently
   const justWokeShort = shortDayNap || shortNightAfterBath
 
   // ── Фаза ──
@@ -198,9 +198,9 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   } else if (phase === 'time-to-sleep') {
     g.headline = 'Пора укладывать'
     if (wakeWindowLeft <= 0) {
-      g.lines.push('Малыш бодрствует дольше нормы для своего возраста. Уложите сейчас, пока не перегулял — с переутомлением уснуть намного труднее.')
+      g.lines.push('Малыш бодрствует дольше ориентира для своего возраста. Окно — не жёсткое правило: посмотрите на признаки усталости (трёт глаза, зевает, отворачивается, капризничает). Если они есть — начинайте спокойное укладывание, а если малыш бодр и весел, можно ещё немного поиграть в тихие игры.')
     } else {
-      g.lines.push('Окно бодрствования почти закончилось — самое время начинать укладывание, не дожидаясь слёз от усталости.')
+      g.lines.push('По ориентиру окно бодрствования почти закончилось. Если видите признаки усталости — самое время начинать укладывание, не дожидаясь слёз.')
     }
     if (nextIsNight && !hasBathToday) {
       g.suggestBath = true
@@ -216,7 +216,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
     } else {
       g.steps = settlingAdviceByLocation(child, g.location)
       if (g.settlingMin >= 30) {
-        g.lines.push(`Укладывание идёт уже ${formatDurationMin(g.settlingMin)}. Если не выходит — вероятно, малыш перегулял или, наоборот, ещё не устал. Сделайте паузу 15–20 минут при тусклом свете и попробуйте заново. Вы справляетесь, это правда бывает непросто.`)
+        g.lines.push(`Укладывание идёт уже ${formatDurationMin(g.settlingMin)}. Если не выходит — возможно, малыш переутомился или, наоборот, ещё не устал. Сделайте паузу 15–20 минут при тусклом свете и попробуйте заново. Вы справляетесь, это правда бывает непросто.`)
       }
     }
   } else if (phase === 'sleeping') {
@@ -246,7 +246,7 @@ export function buildGuidance({ child, events, now = Date.now(), settling = null
   // Показывается утром (с 5:00 до 12:00) до закрытия крестиком.
   const isMorning = hour >= 5 && hour < 12
   if (isMorning) {
-    g.greeting = buildGreeting(yesterday, norms, ageM)
+    g.greeting = buildGreeting(yesterday, norms, ageM, !!norms.custom)
   }
 
   return g
@@ -264,7 +264,7 @@ function reviewDay(summary, norms) {
   return { shortNaps, peregul }
 }
 
-function buildGreeting(yesterday, norms, ageM) {
+function buildGreeting(yesterday, norms, ageM, custom = false) {
   const progress = stageProgressFor(ageM)
   // Нет данных за вчера (первый день / тестовый режим) — общее приветствие
   if (yesterday.totalSleepMin === 0) {
@@ -278,23 +278,27 @@ function buildGreeting(yesterday, norms, ageM) {
 
   const yMet = metNorms(yesterday, norms)
   const { shortNaps, peregul } = reviewDay(yesterday, norms)
+  // У самых маленьких (и в своём режиме родителя) «недосып» не выставляем
+  const judge = ageM >= JUDGE_SLEEP_FROM_M || custom
 
   const line = yMet.all
     ? 'Доброе утро! Вчера был отличный день по сну.'
-    : yesterday.totalSleepMin >= norms.totalSleep[0] - 60
-      ? 'Доброе утро! Новый день — продолжаем в том же духе.'
-      : 'Доброе утро! Вчерашний день был непростым — сегодня начинаем заново, всё получится.'
+    : !judge
+      ? 'Доброе утро! Новый день — режим у малыша складывается постепенно, отмечайте сны, и картина станет яснее.'
+      : yesterday.totalSleepMin >= norms.totalSleep[0] - 60
+        ? 'Доброе утро! Новый день — продолжаем в том же духе.'
+        : 'Доброе утро! Вчерашний день был непростым — сегодня начинаем заново, всё получится.'
 
   const achievements = []
   if (yMet.all) achievements.push('Малыш выспался по суточной норме — так держать! 🏆')
-  else if (yesterday.totalSleepMin >= norms.totalSleep[0] - 30) achievements.push('Малыш спал почти по норме — совсем немного до цели.')
+  else if (judge && yesterday.totalSleepMin >= norms.totalSleep[0] - 30) achievements.push('Малыш спал почти по норме — совсем немного до цели.')
   if (shortNaps === 0 && yesterday.napCount >= norms.naps[0]) achievements.push('Дневные сны были полноценными, без коротких.')
   if (yesterday.daySleepMin >= norms.daySleep[0]) achievements.push('Дневного сна вчера хватило по возрасту.')
 
   const attention = []
   if (shortNaps >= 1) attention.push(`Вчера ${shortNaps === 1 ? 'был короткий сон' : 'были короткие сны'} — сегодня следите за окнами бодрствования и укладывайте при первых признаках усталости.`)
-  if (peregul) attention.push('Вчера случались перегулы (малыш подолгу не спал) — сегодня не пропускайте окно сна, чтобы не копить усталость.')
-  if (yesterday.daySleepMin < norms.daySleep[0] * 0.8) attention.push('Дневного сна вчера было маловато — при недосыпе уводите на ночь пораньше.')
+  if (peregul) attention.push('Вчера были долгие отрезки бодрствования — сегодня присматривайтесь к признакам усталости чуть раньше.')
+  if (judge && yesterday.daySleepMin < norms.daySleep[0] * 0.8) attention.push('Дневного сна вчера было немного — если малыш к вечеру устанет, уведите его на ночь чуть пораньше.')
   if (yesterday.napCount > norms.naps[1]) attention.push('Дневных снов было больше обычного — последите, чтобы это не укоротило ночь.')
   if (attention.length === 0) attention.push('Ориентируйтесь на окна бодрствования и признаки усталости — это главный ориентир дня.')
 

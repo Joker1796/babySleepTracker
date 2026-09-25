@@ -5,9 +5,9 @@ import { useRoute } from 'vue-router'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useNow } from '../composables/useNow'
-import { analyzeDay } from '../logic/sleepAnalyzer'
-import { ageInMonths, formatDurationMin, plural } from '../logic/age'
-import { getNorms } from '../data/sleepNorms'
+import { formatDurationMin, plural } from '../logic/age'
+import { effectiveNorms, normsAgeM } from '../logic/norms'
+import { dailyStats, averageStats, normVerdict } from '../logic/stats'
 import { scheduleProfile, buildSchedule, minToHHMM, hhmmToMin } from '../logic/schedule'
 
 const children = useChildrenStore()
@@ -17,18 +17,12 @@ const route = useRoute()
 
 const days = ref(7)
 
-const stats = computed(() => {
-  const result = []
-  for (let i = days.value - 1; i >= 0; i--) {
-    const dayTs = dayjs(now.value).startOf('day').subtract(i, 'day').valueOf()
-    result.push({ dayTs, ...analyzeDay(events.sorted, dayTs, now.value) })
-  }
-  return result
-})
+const stats = computed(() => dailyStats(events.sorted, now.value, days.value))
 
+// Нормы — возрастные (по корректированному возрасту) или свой режим
 const norms = computed(() => {
   if (!children.activeChild) return null
-  return getNorms(ageInMonths(children.activeChild.birthDate, now.value))
+  return effectiveNorms(children.activeChild, now.value)
 })
 
 // геометрия SVG-графика
@@ -69,22 +63,13 @@ const gridLines = computed(() =>
   [4, 8, 12, 16, 20].map(h => ({ h, y: y(h) }))
 )
 
-const avg = computed(() => {
-  const withData = stats.value.filter(d => d.totalSleepMin > 0)
-  if (!withData.length) return null
-  const total = withData.reduce((s, d) => s + d.totalSleepMin, 0) / withData.length
-  const day = withData.reduce((s, d) => s + d.daySleepMin, 0) / withData.length
-  const naps = withData.reduce((s, d) => s + d.napCount, 0) / withData.length
-  return { total, day, naps: Math.round(naps * 10) / 10, daysCounted: withData.length }
-})
+// Среднее — только по завершённым дням (сегодняшний ещё идёт)
+const avg = computed(() => averageStats(stats.value))
+const hasTodayOnly = computed(() => !avg.value && stats.value.some(d => d.isToday && d.totalSleepMin > 0))
 
-const avgVerdict = computed(() => {
-  if (!avg.value || !norms.value) return ''
-  const [min, max] = norms.value.totalSleep
-  if (avg.value.total < min - 30) return 'Суммарного сна в среднем меньше возрастной нормы — присмотритесь к подсказкам на главном экране.'
-  if (avg.value.total > max + 30) return 'Сна в среднем больше нормы — если малыш бодр и весел, для младенцев это обычно не проблема.'
-  return 'Суммарный сон в пределах возрастной нормы — отличная работа!'
-})
+const avgVerdict = computed(() =>
+  normVerdict(avg.value, norms.value, children.activeChild ? normsAgeM(children.activeChild, now.value) : 6)
+)
 
 // ── Расписание на завтра ──
 const showSchedule = ref(false)
@@ -158,13 +143,17 @@ onMounted(() => {
 
     <div v-if="avg" class="card">
       <div class="card-title">В среднем за {{ avg.daysCounted }} дн. с данными</div>
+      <p class="muted small avg-note">Сегодняшний день ещё идёт — в среднее он не входит.</p>
       <div class="avg-row"><span>Всего сна в сутки</span><b>{{ formatDurationMin(avg.total) }}</b></div>
       <div class="avg-row"><span>Дневной сон</span><b>{{ formatDurationMin(avg.day) }}</b></div>
       <div class="avg-row"><span>Дневных снов</span><b>{{ avg.naps }}</b></div>
-      <div v-if="norms" class="avg-row"><span>Норма всего</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
+      <div v-if="norms" class="avg-row"><span>{{ norms.custom ? 'Цель по режиму' : 'Норма всего' }}</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
       <p class="muted small" style="margin-top: 8px">{{ avgVerdict }}</p>
     </div>
 
+    <p v-else-if="hasTodayOnly" class="muted small" style="text-align: center">
+      Средние появятся, когда завершится хотя бы один день с отметками сна — сегодняшний ещё идёт.
+    </p>
     <p v-else class="muted small" style="text-align: center">
       Пока нет данных — отмечайте сон на главном экране, и здесь появится картина недели.
     </p>
@@ -191,6 +180,8 @@ onMounted(() => {
           <input v-model="bedStr" type="time" />
         </label>
       </div>
+
+      <p v-if="schedule.warning" class="small sched-warning">{{ schedule.warning }}</p>
 
       <!-- 24-часовая полоса -->
       <div class="tl-wrap">
@@ -236,6 +227,18 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.avg-note {
+  margin: -4px 0 8px;
+}
+
+.sched-warning {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--c-warn-soft);
+  line-height: 1.4;
+}
+
 .chart {
   width: 100%;
   height: auto;

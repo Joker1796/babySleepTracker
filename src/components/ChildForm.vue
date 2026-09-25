@@ -13,6 +13,7 @@ const store = useChildrenStore()
 
 const name = ref(props.child?.name || '')
 const birthDate = ref(props.child?.birthDate || '')
+const dueDate = ref(props.child?.dueDate || '')
 const gender = ref(props.child?.gender || null)
 const color = ref(props.child?.color || CHILD_COLORS[store.children.length % CHILD_COLORS.length])
 const feeding = ref(props.child?.feeding || 'breast')
@@ -31,9 +32,15 @@ async function save() {
   if (!name.value.trim()) { error.value = 'Введите имя'; return }
   if (!birthDate.value) { error.value = 'Укажите дату рождения'; return }
   if (birthDate.value > today) { error.value = 'Дата рождения в будущем' ; return }
+  // ПДР не может быть позже рождения больше чем на ~5 месяцев (22 недели беременности)
+  if (dueDate.value && dayjs(dueDate.value).diff(dayjs(birthDate.value), 'week') > 22) {
+    error.value = 'Проверьте предполагаемую дату родов — она слишком далеко от даты рождения'
+    return
+  }
   const data = {
     name: name.value.trim(),
     birthDate: birthDate.value,
+    dueDate: dueDate.value || null,
     gender: gender.value,
     color: color.value,
     feeding: feeding.value,
@@ -57,6 +64,11 @@ async function save() {
     <div class="field">
       <label>Дата рождения</label>
       <input v-model="birthDate" type="date" :max="today" />
+    </div>
+    <div class="field">
+      <label>Предполагаемая дата родов — если малыш родился раньше срока</label>
+      <input v-model="dueDate" type="date" :min="birthDate || undefined" />
+      <p class="muted small hint">Необязательно. Если малыш родился раньше срока на 2 недели и больше, нормы сна и советы до двух лет будут считаться по корректированному возрасту — от ПДР.</p>
     </div>
     <div class="field">
       <label>Пол</label>

@@ -3,8 +3,8 @@ import { computed, ref, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
-import { ageInMonths } from '../logic/age'
-import { TIPS, TIP_CATEGORIES, tipsForAge } from '../data/tips'
+import { normsAgeM } from '../logic/norms'
+import { TIPS, TIP_CATEGORIES, TIP_SOURCES, TIPS_DISCLAIMER, tipsForAge } from '../data/tips'
 
 const route = useRoute()
 const children = useChildrenStore()
@@ -12,9 +12,11 @@ const now = useNow()
 
 const showAllAges = ref(false)
 const expandedId = ref(null)
+const showSources = ref(false)
 
+// Для недоношенных — корректированный возраст
 const ageMonths = computed(() =>
-  children.activeChild ? ageInMonths(children.activeChild.birthDate, now.value) : null
+  children.activeChild ? normsAgeM(children.activeChild, now.value) : null
 )
 
 const visibleTips = computed(() => {
@@ -56,6 +58,8 @@ onMounted(async () => {
   <div class="page">
     <h1 class="page-title">Советы</h1>
 
+    <p class="disclaimer muted">{{ TIPS_DISCLAIMER }}</p>
+
     <div class="row kb-head">
       <div class="card-title grow" style="margin: 0">База знаний</div>
       <button class="chip" :class="{ active: showAllAges }" @click="showAllAges = !showAllAges">
@@ -80,6 +84,21 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <div class="card sources">
+      <button class="tip-head" :aria-expanded="showSources" @click="showSources = !showSources">
+        <span class="grow">📚 Источники</span>
+        <span class="muted">{{ showSources ? '−' : '+' }}</span>
+      </button>
+      <div v-if="showSources" class="tip-body">
+        <p>Статьи сверены с рекомендациями педиатрических и сомнологических организаций. Окна бодрствования и распорядок дня — практические ориентиры, а не строгие медицинские нормы.</p>
+        <ul>
+          <li v-for="src in TIP_SOURCES" :key="src.title">
+            <strong>{{ src.title }}.</strong> {{ src.ref }}
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -92,6 +111,18 @@ onMounted(async () => {
 }
 
 .kb-head { margin: 16px 0 8px; }
+
+.disclaimer {
+  margin: 0 2px 4px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sources {
+  padding: 0;
+  margin-top: 20px;
+  overflow: hidden;
+}
 
 .cat-title {
   margin: 14px 2px 8px;

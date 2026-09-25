@@ -1,6 +1,6 @@
 <script setup>
 import { useChildrenStore } from '../stores/children'
-import { formatAge } from '../logic/age'
+import { formatChildAge } from '../logic/age'
 import { useNow } from '../composables/useNow'
 
 const store = useChildrenStore()
@@ -18,7 +18,7 @@ const now = useNow()
     >
       <span class="dot" :style="{ background: child.color }"></span>
       <span>{{ child.name }}</span>
-      <span class="age">{{ formatAge(child.birthDate, now) }}</span>
+      <span class="age">{{ formatChildAge(child, now) }}</span>
     </button>
   </div>
 </template>

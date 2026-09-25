@@ -2,8 +2,10 @@
 import { computed } from 'vue'
 import { useChildrenStore } from '../stores/children'
 import { useNow } from '../composables/useNow'
-import { formatDurationMin, ageInMonths } from '../logic/age'
+import { formatDurationMin } from '../logic/age'
 import { getNorms } from '../data/sleepNorms'
+import { normsAgeM, normsCappedForChild } from '../logic/norms'
+import { REGIME_LIMITS, clampRegimeNumber, isValidHHMM } from '../data/regime'
 
 const children = useChildrenStore()
 const now = useNow()
@@ -12,36 +14,47 @@ const child = computed(() => children.activeChild)
 const regime = computed(() => child.value?.regime || null)
 const isCustom = computed(() => regime.value?.mode === 'custom')
 
-// Возрастные нормы — подсказка родителю (по текущему возрасту ребёнка)
+// Возрастные нормы — подсказка родителю (по корректированному возрасту ребёнка)
 const norms = computed(() =>
-  child.value ? getNorms(ageInMonths(child.value.birthDate, now.value)) : null
+  child.value ? getNorms(normsAgeM(child.value, now.value)) : null
 )
+const normsCapped = computed(() => normsCappedForChild(child.value, now.value))
 
-// Двусторонняя привязка поля режима: чтение из regime, запись через updateRegime.
-function field(key, { number = false } = {}) {
-  return computed({
-    get: () => regime.value?.[key] ?? '',
-    set: (val) => {
-      const id = child.value?.id
-      if (!id) return
-      children.updateRegime(id, { [key]: number ? Number(val) : val })
-    }
-  })
+function save(patch) {
+  const id = child.value?.id
+  if (id) children.updateRegime(id, patch)
 }
 
-const wakeWindow = field('wakeWindow', { number: true })
-const napCount = field('napCount', { number: true })
-const napDurationMin = field('napDurationMin', { number: true })
-const nightSleepMin = field('nightSleepMin', { number: true })
-const windDownMin = field('windDownMin', { number: true })
-const dayStart = field('dayStart')
-const nightStart = field('nightStart')
-const morningWake = field('morningWake')
-const shortNapReduce = field('shortNapReduce')
+// Числовое поле: сохраняем по @change (не на каждую клавишу). Пустое или
+// нечисловое значение не сохраняем — возвращаем в поле прежнее; вне диапазона
+// прижимаем к границе.
+function onNumber(key, e) {
+  const v = clampRegimeNumber(key, e.target.value)
+  if (v == null) {
+    e.target.value = regime.value?.[key] ?? ''
+    return
+  }
+  e.target.value = v
+  if (v !== regime.value?.[key]) save({ [key]: v })
+}
+
+function onTime(key, e) {
+  const v = e.target.value
+  if (!isValidHHMM(v)) {
+    e.target.value = regime.value?.[key] ?? ''
+    return
+  }
+  if (v !== regime.value?.[key]) save({ [key]: v })
+}
+
+function onToggle(key, e) {
+  save({ [key]: !!e.target.checked })
+}
 
 // Итоговые цели по введённым значениям
 const daySleepMin = computed(() => (Number(regime.value?.napCount) || 0) * (Number(regime.value?.napDurationMin) || 0))
-const totalSleepMin = computed(() => daySleepMin.value + (Number(regime.value?.nightSleepMin) || 0))
+const nightSleepMin = computed(() => Number(regime.value?.nightSleepMin) || 0)
+const totalSleepMin = computed(() => daySleepMin.value + nightSleepMin.value)
 
 function enableCustom() {
   const id = child.value?.id
@@ -62,9 +75,12 @@ function enableCustom() {
         <div class="sum-item"><span>Дневной сон</span><b>{{ formatDurationMin(norms.daySleep[0]) }} – {{ formatDurationMin(norms.daySleep[1]) }}</b></div>
         <div class="sum-item"><span>Ночной сон</span><b>{{ formatDurationMin(norms.nightSleep[0]) }} – {{ formatDurationMin(norms.nightSleep[1]) }}</b></div>
         <div class="sum-item"><span>Всего за сутки</span><b>{{ formatDurationMin(norms.totalSleep[0]) }} – {{ formatDurationMin(norms.totalSleep[1]) }}</b></div>
+        <div class="sum-item"><span>Чаще всего</span><b>{{ formatDurationMin(norms.typicalTotal[0]) }} – {{ formatDurationMin(norms.typicalTotal[1]) }}</b></div>
         <div class="sum-item"><span>Отбой</span><b>{{ norms.bedtime[0] }}–{{ norms.bedtime[1] }}</b></div>
       </div>
       <p class="muted small norms-note">{{ norms.note }}</p>
+      <p class="muted small norms-note">Суточный сон — по рекомендациям AASM (2016) и NSF (2015), ночной — с учётом пробуждений на кормление. Окна бодрствования и отбой — ориентиры: главное — признаки усталости малыша.</p>
+      <p v-if="normsCapped" class="muted small norms-note">Нормы рассчитаны до года — сейчас показаны для 10–12 месяцев.</p>
     </div>
 
     <template v-if="!child">
@@ -83,7 +99,7 @@ function enableCustom() {
         <div class="card-title">Целевые ориентиры</div>
         <div class="summary">
           <div class="sum-item"><span>Дневной сон</span><b>{{ formatDurationMin(daySleepMin) }}</b></div>
-          <div class="sum-item"><span>Ночной сон</span><b>{{ formatDurationMin(nightSleepMin || 0) }}</b></div>
+          <div class="sum-item"><span>Ночной сон</span><b>{{ formatDurationMin(nightSleepMin) }}</b></div>
           <div class="sum-item"><span>Всего за сутки</span><b>{{ formatDurationMin(totalSleepMin) }}</b></div>
         </div>
       </div>
@@ -93,23 +109,19 @@ function enableCustom() {
 
         <div class="field">
           <label>Окно бодрствования, мин</label>
-          <input v-model="wakeWindow" type="number" min="15" max="360" inputmode="numeric" />
+          <input :value="regime.wakeWindow" @change="onNumber('wakeWindow', $event)" type="number" :min="REGIME_LIMITS.wakeWindow[0]" :max="REGIME_LIMITS.wakeWindow[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>Количество дневных снов</label>
-          <input v-model="napCount" type="number" min="0" max="8" inputmode="numeric" />
+          <input :value="regime.napCount" @change="onNumber('napCount', $event)" type="number" :min="REGIME_LIMITS.napCount[0]" :max="REGIME_LIMITS.napCount[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>Продолжительность одного сна, мин</label>
-          <input v-model="napDurationMin" type="number" min="10" max="240" inputmode="numeric" />
-        </div>
-        <div class="field">
-          <label>Начало дневного сна (первый)</label>
-          <input v-model="dayStart" type="time" />
+          <input :value="regime.napDurationMin" @change="onNumber('napDurationMin', $event)" type="number" :min="REGIME_LIMITS.napDurationMin[0]" :max="REGIME_LIMITS.napDurationMin[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>Начало ночного сна (отбой)</label>
-          <input v-model="nightStart" type="time" />
+          <input :value="regime.nightStart" @change="onTime('nightStart', $event)" type="time" />
         </div>
       </div>
 
@@ -118,18 +130,19 @@ function enableCustom() {
 
         <div class="field">
           <label>Утренний подъём</label>
-          <input v-model="morningWake" type="time" />
+          <input :value="regime.morningWake" @change="onTime('morningWake', $event)" type="time" />
+          <p class="muted small hint">Используется в расписании на завтра, пока отметок сна мало.</p>
         </div>
         <div class="field">
           <label>Продолжительность ночного сна, мин</label>
-          <input v-model="nightSleepMin" type="number" min="0" max="900" inputmode="numeric" />
+          <input :value="regime.nightSleepMin" @change="onNumber('nightSleepMin', $event)" type="number" :min="REGIME_LIMITS.nightSleepMin[0]" :max="REGIME_LIMITS.nightSleepMin[1]" inputmode="numeric" />
         </div>
         <div class="field">
           <label>За сколько минут до сна «сбавить темп»</label>
-          <input v-model="windDownMin" type="number" min="0" max="90" inputmode="numeric" />
+          <input :value="regime.windDownMin" @change="onNumber('windDownMin', $event)" type="number" :min="REGIME_LIMITS.windDownMin[0]" :max="REGIME_LIMITS.windDownMin[1]" inputmode="numeric" />
         </div>
         <label class="switch-row">
-          <input v-model="shortNapReduce" type="checkbox" />
+          <input :checked="regime.shortNapReduce !== false" @change="onToggle('shortNapReduce', $event)" type="checkbox" />
           <span>Сокращать окно бодрствования после короткого сна</span>
         </label>
       </div>
@@ -165,6 +178,8 @@ function enableCustom() {
 }
 
 .field { margin-bottom: 12px; }
+
+.hint { margin: 4px 0 0; }
 
 .field input[type='number'],
 .field input[type='time'] {

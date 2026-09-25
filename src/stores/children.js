@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { db, uid } from '../db'
-import { ageInMonths } from '../logic/age'
+import { correctedAgeInMonths } from '../logic/age'
 import { seedRegimeFromNorms } from '../data/regime'
 import { CHILD_COLORS, DEFAULT_FEEDING } from '../db/childDefaults'
 
@@ -22,11 +22,13 @@ export const useChildrenStore = defineStore('children', {
       this.children = await db.children.toArray()
       this.loaded = true
     },
-    async add({ name, birthDate, color, feeding, aids, gender }) {
+    async add({ name, birthDate, dueDate, color, feeding, aids, gender }) {
       const child = {
         id: uid(),
         name,
         birthDate,
+        // ПДР — только если малыш родился раньше срока (для корректированного возраста)
+        dueDate: dueDate || null,
         color: color || CHILD_COLORS[this.children.length % CHILD_COLORS.length],
         feeding: feeding || DEFAULT_FEEDING,
         aids: aids || [],
@@ -55,7 +57,7 @@ export const useChildrenStore = defineStore('children', {
       if (mode === 'custom') {
         regime = child.regime && child.regime.wakeWindow != null
           ? { ...child.regime, mode: 'custom' }
-          : seedRegimeFromNorms(ageInMonths(child.birthDate))
+          : seedRegimeFromNorms(correctedAgeInMonths(child))
       } else {
         regime = { ...(child.regime || {}), mode: 'auto' }
       }

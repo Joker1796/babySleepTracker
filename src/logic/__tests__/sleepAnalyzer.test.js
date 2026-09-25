@@ -206,3 +206,26 @@ describe('забытый открытый сон (> 16 ч)', () => {
     expect(day.totalSleepMin).toBe(12 * 60)
   })
 })
+
+describe('lastNapToday — то же определение дневного сна, что и analyzeDay', () => {
+  it('короткий вечерний сон после 19:00, но до купания и отбоя — дневной', () => {
+    const now = ts('2026-07-04T20:40')
+    const events = [
+      sleep('2026-07-04T19:05', '2026-07-04T19:30'), // «кошачий» сон перед купанием
+      bath('2026-07-04T20:00', '2026-07-04T20:15'),
+      sleep('2026-07-04T20:30', null) // ночной отбой
+    ]
+    expect(analyzeDay(events, now, now).napCount).toBe(1)
+    expect(lastNapToday(events, now)?.startedAt).toBe(ts('2026-07-04T19:05'))
+  })
+
+  it('сон после вечернего купания не считается дневным', () => {
+    const now = ts('2026-07-04T20:30')
+    const events = [
+      sleep('2026-07-04T14:00', '2026-07-04T15:00'),
+      bath('2026-07-04T19:00', '2026-07-04T19:15'),
+      sleep('2026-07-04T19:30', '2026-07-04T20:00')
+    ]
+    expect(lastNapToday(events, now)?.startedAt).toBe(ts('2026-07-04T14:00'))
+  })
+})

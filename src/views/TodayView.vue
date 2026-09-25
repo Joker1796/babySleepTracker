@@ -1,12 +1,13 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
-import dayjs from 'dayjs'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettlingStore } from '../stores/settling'
 import { useNow } from '../composables/useNow'
 import { buildGuidance } from '../logic/guidance'
 import { formatDurationMin, plural } from '../logic/age'
+import { buildStatus, wokeAtLabel as wokeAt, timeToSleepLabel as timeToSleep, wakeProgressValue } from '../logic/status'
+import { normsCappedForChild } from '../logic/norms'
 import ChildSwitcher from '../components/ChildSwitcher.vue'
 import SleepButton from '../components/SleepButton.vue'
 import SettlingFlow from '../components/SettlingFlow.vue'
@@ -62,59 +63,15 @@ watch(
 // показываем «Ночное пробуждение», а не «Бодрствует» — даже во время продления сна.
 const isNightWaking = computed(() => !!guidance.value?.isNightWaking)
 
-const status = computed(() => {
-  const a = advice.value
-  if (!a) return null
-  if (a.state.sleeping) {
-    return {
-      icon: '😴',
-      title: `Спит ${formatDurationMin(a.state.sleepingMin)}`,
-      sub: `уснул(а) в ${dayjs(a.state.sleeping.startedAt).format('HH:mm')}`
-    }
-  }
-  if (isNightWaking.value && a.state.lastWakeAt != null) {
-    return {
-      icon: '🌙',
-      title: 'Ночное пробуждение',
-      sub: `проснулся(ась) в ${dayjs(a.state.lastWakeAt).format('HH:mm')} · уложите обратно`
-    }
-  }
-  if (a.state.staleSleep) {
-    return {
-      icon: '⏳',
-      title: 'Сон не завершён',
-      sub: `уснул(а) ${dayjs(a.state.staleSleep.startedAt).format('DD.MM в HH:mm')}`
-    }
-  }
-  if (a.state.awakeMin != null) {
-    // Время пробуждения показываем под полосой (слева), поэтому здесь sub не нужен
-    return {
-      icon: '🙂',
-      title: `Бодрствует ${formatDurationMin(a.state.awakeMin)}`,
-      sub: null
-    }
-  }
-  return { icon: '🍼', title: 'Нет данных о сне', sub: 'отметьте засыпание и пробуждение' }
-})
-
-const wokeAtLabel = computed(() => {
-  const t = advice.value?.state.lastWakeAt
-  return t != null ? `проснулся(ась) в ${dayjs(t).format('HH:mm')}` : ''
-})
-
-const progress = computed(() => {
-  const p = advice.value?.wakeProgress
-  if (p == null) return null
-  return Math.min(p, 1.15)
-})
-
+const gender = computed(() => children.activeChild?.gender || null)
+const status = computed(() => buildStatus(advice.value, { isNightWaking: isNightWaking.value, gender: gender.value }))
+const wokeAtLabel = computed(() => wokeAt(advice.value, gender.value))
+const progress = computed(() => wakeProgressValue(advice.value))
 // Текст под полосой: сколько осталось до сна
-const timeToSleepLabel = computed(() => {
-  const left = advice.value?.wakeWindowLeft
-  if (left == null) return ''
-  return left > 0 ? `время до сна ~${formatDurationMin(left)}` : 'пора укладывать'
-})
+const timeToSleepLabel = computed(() => timeToSleep(advice.value))
 
+// Старше года нормы считаются по группе 10–12 мес — показываем пометку
+const normsCapped = computed(() => normsCappedForChild(children.activeChild, now.value))
 
 // Флоу сам даёт кнопку «Уснул» во время укладывания — большая кнопка тогда лишняя
 const showSleepButton = computed(() =>
@@ -225,6 +182,7 @@ function toggleRegime() {
           <span class="f-value">{{ formatDurationMin(advice.today.daySleepMin) }} · {{ advice.today.napCount }} {{ plural(advice.today.napCount, 'сон', 'сна', 'снов') }}</span>
         </div>
       </div>
+      <p v-if="normsCapped" class="muted small norms-capped">Нормы рассчитаны до года — после года ориентируйтесь в первую очередь на самочувствие малыша.</p>
     </div>
 
     <!-- Забытая отметка пробуждения -->
@@ -249,7 +207,7 @@ function toggleRegime() {
     <!-- Пора укладывать / укладываемся / сон — над кнопками активностей -->
     <SettlingFlow v-if="guidance && !staleSleep && guidance.phase !== 'active'" :guidance="guidance" @slept="showToast('Сладких снов 💤')" />
 
-    <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул(а)» -->
+    <!-- Продлить сон (после короткого сна) — над кнопкой «Уснул» -->
     <button v-if="guidance?.showExtendNap" class="btn block extend-btn" @click="extendNap">
       🔁 Продлить сон
     </button>
@@ -367,6 +325,10 @@ function toggleRegime() {
   background-image: linear-gradient(90deg, var(--c-ww-from), var(--c-ww-to));
   background-size: 496px 100%;
   background-repeat: no-repeat;
+}
+
+.norms-capped {
+  margin: 8px 0 0;
 }
 
 .forecast {

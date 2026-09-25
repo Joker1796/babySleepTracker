@@ -50,12 +50,23 @@ function isValidId(id) {
   return (typeof id === 'string' && id.trim() !== '') || (typeof id === 'number' && Number.isFinite(id))
 }
 
-export function isValidBirthDate(s, now = Date.now()) {
+// Строгая проверка календарной даты 'YYYY-MM-DD'
+export function isValidDateString(s) {
   if (typeof s !== 'string' || !DATE_RE.test(s)) return false
   const d = dayjs(s)
   // dayjs не строгий: '2026-02-30' превратится в 2 марта — сверяем обратным форматом
-  if (!d.isValid() || d.format('YYYY-MM-DD') !== s) return false
-  return !d.isAfter(dayjs(now), 'day')
+  return d.isValid() && d.format('YYYY-MM-DD') === s
+}
+
+export function isValidBirthDate(s, now = Date.now()) {
+  if (!isValidDateString(s)) return false
+  return !dayjs(s).isAfter(dayjs(now), 'day')
+}
+
+// ПДР необязательна: null или корректная дата (может быть и в будущем —
+// у недавно родившегося недоношенного малыша)
+export function isValidDueDate(s) {
+  return s == null || isValidDateString(s)
 }
 
 // Режим валиден целиком или выкидывается целиком (тогда станет { mode: 'auto' })
@@ -101,6 +112,10 @@ export function validateBackup(data, { existingChildIds = [], now = Date.now() }
     }
     if (child.aids != null && !Array.isArray(child.aids)) delete child.aids
     if (child.gender != null && child.gender !== 'male' && child.gender !== 'female') child.gender = null
+    if (!isValidDueDate(child.dueDate)) {
+      child.dueDate = null
+      reasons.push(`${label} (${child.name}): некорректная ПДР — сброшена`)
+    }
     childIds.add(raw.id)
     children.push(fillChildDefaults(child, i))
   })

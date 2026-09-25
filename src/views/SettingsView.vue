@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useChildrenStore } from '../stores/children'
 import { useEventsStore } from '../stores/events'
 import { useSettingsStore } from '../stores/settings'
-import { formatAge } from '../logic/age'
+import { formatChildAge } from '../logic/age'
 import { getFeeding, getAid } from '../data/childOptions'
 import { exportBackup, readBackupFile, importBackup } from '../utils/backup'
 import { plural } from '../logic/age'
@@ -86,7 +86,7 @@ function cancelImport() {
           <div class="grow">
             <b>{{ child.name }}</b>
             <div class="muted small">
-              {{ formatAge(child.birthDate) }} · {{ child.birthDate }}
+              {{ formatChildAge(child) }} · {{ child.birthDate }}
               <template v-if="getFeeding(child.feeding)"> · {{ getFeeding(child.feeding).icon }} {{ getFeeding(child.feeding).short }}</template>
             </div>
             <div v-if="child.aids?.length" class="muted small aids">
